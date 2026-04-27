@@ -103,7 +103,8 @@ export function ImageCropModal({
               onClick={onClose}
               disabled={submitting}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[var(--editor-muted)] transition hover:bg-[var(--editor-soft)] hover:text-[var(--editor-ink)] disabled:opacity-50"
-              aria-label="关闭"
+              title="关闭裁剪面板"
+              aria-label="关闭裁剪面板"
             >
               <X className="h-4 w-4" />
             </button>

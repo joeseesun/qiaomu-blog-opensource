@@ -440,6 +440,8 @@ export function AIModal({
               type="button"
               onClick={() => setHistoryOpen((value) => !value)}
               className="inline-flex items-center gap-1 rounded-full border border-[var(--editor-line)] px-2.5 py-1 text-xs text-[var(--editor-ink)] hover:bg-[var(--editor-soft)] transition"
+              title={historyOpen ? '收起历史生成' : '查看最近的 AI 生成记录'}
+              aria-label={historyOpen ? '收起历史生成' : '查看最近的 AI 生成记录'}
             >
               <History className="h-3.5 w-3.5" />
               历史生成
@@ -636,7 +638,8 @@ export function AIModal({
                 type="button"
                 onClick={() => copyToClipboard()}
                 className="absolute top-2 right-2 flex items-center justify-center h-7 w-7 rounded-md bg-white/80 backdrop-blur border border-[var(--editor-line)] text-[var(--editor-muted)] hover:text-[var(--editor-ink)] hover:bg-white transition"
-                title="复制"
+                title={copied ? '已复制' : '复制生成内容'}
+                aria-label={copied ? '已复制' : '复制生成内容'}
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
               </button>

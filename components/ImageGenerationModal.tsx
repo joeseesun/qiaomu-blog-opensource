@@ -434,7 +434,8 @@ export function ImageGenerationModal({
               type="button"
               onClick={onClose}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[var(--editor-muted)] transition hover:bg-[var(--editor-soft)] hover:text-[var(--editor-ink)]"
-              aria-label="关闭"
+              title="关闭生成图片面板"
+              aria-label="关闭生成图片面板"
             >
               <X className="h-4 w-4" />
             </button>
@@ -681,6 +682,8 @@ export function ImageGenerationModal({
                                 setShowRevisedPrompt(false)
                               }}
                               className="block w-full"
+                              title="预览这张历史图片"
+                              aria-label="预览这张历史图片"
                             >
                               <img
                                 src={previewUrl}
