@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   }
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 })
 
-  const secret = resolveAiConfigSecret(env as Record<string, unknown>)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown>)
   await ensureAiConfigInfrastructure(db, secret)
   const { profiles, defaultProfileId } = await listProfiles(db)
 
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   }
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 })
 
-  const secret = resolveAiConfigSecret(env as Record<string, unknown>)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown>)
   await ensureAiConfigInfrastructure(db, secret)
 
   const body = (await req.json()) as SaveProfileBody
@@ -155,7 +155,7 @@ export async function PUT(req: NextRequest) {
   }
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 })
 
-  const secret = resolveAiConfigSecret(env as Record<string, unknown>)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown>)
   await ensureAiConfigInfrastructure(db, secret)
 
   const body = (await req.json()) as SaveProfileBody
@@ -253,7 +253,7 @@ export async function DELETE(req: NextRequest) {
   }
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 })
 
-  const secret = resolveAiConfigSecret(env as Record<string, unknown>)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown>)
   await ensureAiConfigInfrastructure(db, secret)
 
   const body = (await req.json()) as { id?: number }

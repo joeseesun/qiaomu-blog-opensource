@@ -61,7 +61,8 @@ export function EncryptionControl({ initialPassword, onChange, articleUrl }: Enc
             ? 'bg-[var(--editor-accent)] text-white'
             : 'bg-[var(--editor-soft)] text-[var(--editor-muted)] hover:bg-[var(--editor-line)]'
         }`}
-        title={isEncrypted ? '已加密' : '加密文章'}
+        title={isEncrypted ? '取消加密' : '加密文章'}
+        aria-label={isEncrypted ? '取消加密' : '加密文章'}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {isEncrypted ? (
@@ -84,6 +85,7 @@ export function EncryptionControl({ initialPassword, onChange, articleUrl }: Enc
           onClick={() => setShowPanel(!showPanel)}
           className="ml-1 p-2 rounded-md bg-[var(--editor-soft)] text-[var(--editor-muted)] hover:bg-[var(--editor-line)] transition-colors"
           title="查看密码"
+          aria-label="查看密码"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -100,6 +102,8 @@ export function EncryptionControl({ initialPassword, onChange, articleUrl }: Enc
               type="button"
               onClick={() => setShowPanel(false)}
               className="text-[var(--editor-muted)] hover:text-[var(--editor-ink)] transition-colors"
+              title="关闭面板"
+              aria-label="关闭面板"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>

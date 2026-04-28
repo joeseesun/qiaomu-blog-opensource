@@ -873,7 +873,7 @@ export async function generateEditorImage(
 ): Promise<GeneratedEditorImage> {
   await ensureAiImageConfigInfrastructure(input.db)
 
-  const secret = resolveAiConfigSecret(input.env as Record<string, unknown> | undefined)
+  const secret = resolveAiConfigSecret(input.env as unknown as Record<string, unknown> | undefined)
   const action = await resolveImageAction(input.db, input.action)
   const seeded = getDefaultImageActionSeed(action?.action_key)
   const requestedAspectRatio = normalizeAiImageAspectRatio(

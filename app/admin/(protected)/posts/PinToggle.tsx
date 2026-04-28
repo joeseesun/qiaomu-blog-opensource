@@ -54,6 +54,7 @@ export function PinToggle({ slug, isPinned }: PinToggleProps) {
             : 'text-[var(--stone-gray)] hover:bg-[var(--editor-soft)]'
         }`}
         title={pinned === 1 ? '取消置顶' : '置顶文章'}
+        aria-label={pinned === 1 ? '取消置顶' : '置顶文章'}
       >
         {loading ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">

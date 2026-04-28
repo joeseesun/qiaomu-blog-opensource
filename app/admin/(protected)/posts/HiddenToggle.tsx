@@ -55,6 +55,7 @@ export function HiddenToggle({ slug, isHidden }: HiddenToggleProps) {
             : 'text-[var(--stone-gray)] hover:bg-[var(--editor-soft)]'
         }`}
         title={hidden === 1 ? '取消隐藏' : '隐藏文章'}
+        aria-label={hidden === 1 ? '取消隐藏' : '隐藏文章'}
       >
         {loading ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">

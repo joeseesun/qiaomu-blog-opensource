@@ -398,6 +398,7 @@ export function InlineArticleEditor({
             onClick={(e) => openDocumentAIModal(e.currentTarget)}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--editor-muted)] transition hover:bg-[var(--editor-soft)] hover:text-[var(--editor-accent)]"
             title="Ask AI（基于标题和正文）"
+            aria-label="Ask AI（基于标题和正文）"
           >
             <WandSparkles className="h-3.5 w-3.5" />
           </button>
@@ -406,6 +407,7 @@ export function InlineArticleEditor({
             onClick={openDocumentImageModal}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--editor-muted)] transition hover:bg-[var(--editor-soft)] hover:text-[var(--editor-accent)]"
             title="生成图片"
+            aria-label="生成图片"
           >
             <ImageIcon className="h-3.5 w-3.5" />
           </button>

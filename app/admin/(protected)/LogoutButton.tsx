@@ -18,6 +18,7 @@ export function LogoutButton() {
       onClick={handleLogout}
       className="p-2 rounded-lg text-[var(--editor-muted)] hover:text-rose-500 hover:bg-[var(--editor-soft)] transition-all"
       title="退出登录"
+      aria-label="退出登录"
     >
       <LogOut className="w-4 h-4" />
     </button>

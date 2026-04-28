@@ -258,7 +258,7 @@ export function PostRow({ post, categories }: PostRowProps) {
   return (
     <>
       {/* 桌面端 */}
-      <div className="hidden md:grid grid-cols-[50px_1fr_120px_90px_200px] gap-3 px-5 py-3 hover:bg-[var(--editor-panel)] transition-colors items-center">
+      <div className="hidden md:grid grid-cols-[50px_1fr_120px_90px_260px] gap-3 px-5 py-3 hover:bg-[var(--editor-panel)] transition-colors items-center">
         {/* 状态列 */}
         <div className="flex flex-col items-center gap-1.5">
           {/* 状态圆点 */}
@@ -324,14 +324,15 @@ export function PostRow({ post, categories }: PostRowProps) {
         </div>
 
         {/* 操作列 */}
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1 min-w-0">
           {isDeleted ? (
             <>
               <button
                 onClick={handleRestore}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title="恢复"
+                title="恢复为草稿"
+                aria-label="恢复为草稿"
               >
                 <Check className="w-4 h-4 text-emerald-600" />
               </button>
@@ -340,6 +341,7 @@ export function PostRow({ post, categories }: PostRowProps) {
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
                 title="永久删除"
+                aria-label="永久删除"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
@@ -350,6 +352,7 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={handleView}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors"
                 title="查看文章"
+                aria-label="查看文章"
               >
                 <Eye className="w-4 h-4 text-[var(--stone-gray)]" />
               </button>
@@ -357,13 +360,15 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={handleCopyLink}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors"
                 title="复制链接"
+                aria-label="复制链接"
               >
                 <Link2 className="w-4 h-4 text-[var(--stone-gray)]" />
               </button>
               <Link
                 href={`/editor?edit=${post.slug}`}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors"
-                title="编辑"
+                title="编辑文章"
+                aria-label="编辑文章"
               >
                 <Edit className="w-4 h-4 text-[var(--stone-gray)]" />
               </Link>
@@ -371,7 +376,8 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={() => setShowPinModal(true)}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title={post.is_pinned === 1 ? '取消置顶' : '置顶'}
+                title={post.is_pinned === 1 ? '取消置顶' : '置顶文章'}
+                aria-label={post.is_pinned === 1 ? '取消置顶' : '置顶文章'}
               >
                 {post.is_pinned === 1 ? (
                   <PinOff className="w-4 h-4 text-[var(--editor-accent)]" />
@@ -383,7 +389,8 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={() => setShowHiddenModal(true)}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title={post.is_hidden === 1 ? '取消隐藏' : '隐藏'}
+                title={post.is_hidden === 1 ? '取消隐藏' : '隐藏文章'}
+                aria-label={post.is_hidden === 1 ? '取消隐藏' : '隐藏文章'}
               >
                 {post.is_hidden === 1 ? (
                   <EyeOff className="w-4 h-4 text-[var(--stone-gray)]" />
@@ -394,7 +401,8 @@ export function PostRow({ post, categories }: PostRowProps) {
               <button
                 onClick={() => setShowPasswordModal(true)}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors"
-                title={post.password ? '管理密码' : '设置密码'}
+                title={post.password ? '管理访问密码' : '设置访问密码'}
+                aria-label={post.password ? '管理访问密码' : '设置访问密码'}
               >
                 {post.password ? (
                   <Lock className="w-4 h-4 text-[var(--editor-accent)]" />
@@ -406,7 +414,8 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={() => setShowStatusModal(true)}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title={post.status === 'published' ? '转为草稿' : '发布'}
+                title={post.status === 'published' ? '转为草稿' : '发布文章'}
+                aria-label={post.status === 'published' ? '转为草稿' : '发布文章'}
               >
                 {post.status === 'published' ? (
                   <FileText className="w-4 h-4 text-amber-500" />
@@ -418,7 +427,8 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={() => setShowDeleteModal(true)}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title="删除"
+                title="删除文章"
+                aria-label="删除文章"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
@@ -487,7 +497,8 @@ export function PostRow({ post, categories }: PostRowProps) {
                 onClick={handleRestore}
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
-                title="恢复"
+                title="恢复为草稿"
+                aria-label="恢复为草稿"
               >
                 <Check className="w-4 h-4 text-emerald-600" />
               </button>
@@ -496,34 +507,35 @@ export function PostRow({ post, categories }: PostRowProps) {
                 disabled={loading}
                 className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50"
                 title="永久删除"
+                aria-label="永久删除"
               >
                 <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
             </>
           ) : (
             <>
-              <button onClick={handleView} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors">
+              <button onClick={handleView} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors" title="查看文章" aria-label="查看文章">
                 <Eye className="w-4 h-4 text-[var(--stone-gray)]" />
               </button>
-              <button onClick={handleCopyLink} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors">
+              <button onClick={handleCopyLink} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors" title="复制链接" aria-label="复制链接">
                 <Link2 className="w-4 h-4 text-[var(--stone-gray)]" />
               </button>
-              <Link href={`/editor?edit=${post.slug}`} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors">
+              <Link href={`/editor?edit=${post.slug}`} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors" title="编辑文章" aria-label="编辑文章">
                 <Edit className="w-4 h-4 text-[var(--stone-gray)]" />
               </Link>
-              <button onClick={() => setShowPinModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50">
+              <button onClick={() => setShowPinModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50" title={post.is_pinned === 1 ? '取消置顶' : '置顶文章'} aria-label={post.is_pinned === 1 ? '取消置顶' : '置顶文章'}>
                 {post.is_pinned === 1 ? <PinOff className="w-4 h-4 text-[var(--editor-accent)]" /> : <Pin className="w-4 h-4 text-[var(--stone-gray)]" />}
               </button>
-              <button onClick={() => setShowHiddenModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50">
+              <button onClick={() => setShowHiddenModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50" title={post.is_hidden === 1 ? '取消隐藏' : '隐藏文章'} aria-label={post.is_hidden === 1 ? '取消隐藏' : '隐藏文章'}>
                 {post.is_hidden === 1 ? <EyeOff className="w-4 h-4 text-[var(--stone-gray)]" /> : <EyeIcon className="w-4 h-4 text-[var(--stone-gray)]" />}
               </button>
-              <button onClick={() => setShowPasswordModal(true)} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors">
+              <button onClick={() => setShowPasswordModal(true)} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors" title={post.password ? '管理访问密码' : '设置访问密码'} aria-label={post.password ? '管理访问密码' : '设置访问密码'}>
                 {post.password ? <Lock className="w-4 h-4 text-[var(--editor-accent)]" /> : <Unlock className="w-4 h-4 text-[var(--stone-gray)]" />}
               </button>
-              <button onClick={() => setShowStatusModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50">
+              <button onClick={() => setShowStatusModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50" title={post.status === 'published' ? '转为草稿' : '发布文章'} aria-label={post.status === 'published' ? '转为草稿' : '发布文章'}>
                 {post.status === 'published' ? <FileText className="w-4 h-4 text-amber-500" /> : <Check className="w-4 h-4 text-emerald-600" />}
               </button>
-              <button onClick={() => setShowDeleteModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50">
+              <button onClick={() => setShowDeleteModal(true)} disabled={loading} className="p-1.5 rounded hover:bg-[var(--editor-soft)] transition-colors disabled:opacity-50" title="删除文章" aria-label="删除文章">
                 <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
             </>

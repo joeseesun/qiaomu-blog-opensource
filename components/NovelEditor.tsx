@@ -66,6 +66,7 @@ import { resolvePostCoverImage } from '@/lib/default-cover-images'
 import { buildAutoDescription, normalizePostSlug, sanitizePostSlugInput } from '@/lib/post-utils'
 import { getSiteDisplayUrl } from '@/lib/site-config'
 import { resizeTextareaHeight, useAutoResizeTextarea } from '@/lib/textarea-autosize'
+import { EDITOR_REHOST_TOAST_EVENT, type EditorRehostToastDetail } from '@/lib/editor-rehost-toast'
 
 type SaveFeedback =
   | { type: 'success' | 'error'; message: string; slug?: string }
@@ -163,6 +164,21 @@ export function NovelEditor({ initialData }: NovelEditorProps = {}) {
   const publishPanelRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const toast = useToast()
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<EditorRehostToastDetail>).detail
+      if (!detail?.message) return
+      const variant = detail.variant
+      if (variant === 'success') toast.success(detail.message, detail.durationMs)
+      else if (variant === 'error') toast.error(detail.message, detail.durationMs)
+      else toast.info(detail.message, detail.durationMs)
+    }
+    window.addEventListener(EDITOR_REHOST_TOAST_EVENT, handler as EventListener)
+    return () => {
+      window.removeEventListener(EDITOR_REHOST_TOAST_EVENT, handler as EventListener)
+    }
+  }, [toast])
 
   // Draft save refs
   const draftSaveTimerRef = useRef<number | null>(null)

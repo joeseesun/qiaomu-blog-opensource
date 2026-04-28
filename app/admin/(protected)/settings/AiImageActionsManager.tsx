@@ -247,6 +247,8 @@ export function AiImageActionsManager() {
                       disabled={index === 0}
                       onClick={() => moveAction(index, 'up')}
                       className="rounded px-1 text-[var(--editor-muted)] hover:bg-[var(--editor-soft)] disabled:opacity-30"
+                      title="上移一行"
+                      aria-label="上移一行"
                     >
                       ↑
                     </button>
@@ -255,6 +257,8 @@ export function AiImageActionsManager() {
                       disabled={index === actions.length - 1}
                       onClick={() => moveAction(index, 'down')}
                       className="rounded px-1 text-[var(--editor-muted)] hover:bg-[var(--editor-soft)] disabled:opacity-30"
+                      title="下移一行"
+                      aria-label="下移一行"
                     >
                       ↓
                     </button>
@@ -272,6 +276,7 @@ export function AiImageActionsManager() {
                     onClick={() => toggleEnabled(action)}
                     className={`inline-block h-4 w-4 rounded-full transition ${action.is_enabled ? 'bg-emerald-500' : 'bg-[var(--editor-line)]'}`}
                     title={action.is_enabled ? '已启用（点击禁用）' : '已禁用（点击启用）'}
+                    aria-label={action.is_enabled ? '禁用此操作' : '启用此操作'}
                   />
                 </td>
                 <td className="px-3 py-2 text-right">
