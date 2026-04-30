@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { Dropdown } from '@/components/Dropdown'
 import { useToast } from '@/components/Toast'
 import { Modal } from '@/components/Modal'
@@ -55,6 +55,11 @@ export function AiImageActionsManager() {
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AiImageAction | null>(null)
+  const [clickCount, setClickCount] = useState(0)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const CLICK_THRESHOLD = 3
+  const CLICK_WINDOW_MS = 5000
 
   const profileOptions = profiles.map((profile) => ({
     ...profile,
@@ -172,6 +177,19 @@ export function AiImageActionsManager() {
     } catch {
       toast.error('更新失败')
     }
+  }
+
+  const handleOverlayClick = () => {
+    const newCount = clickCount + 1
+    setClickCount(newCount)
+    if (newCount >= CLICK_THRESHOLD) {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+      setClickCount(0)
+      setEditAction(null)
+      return
+    }
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    clickTimerRef.current = setTimeout(() => setClickCount(0), CLICK_WINDOW_MS)
   }
 
   const moveAction = async (index: number, direction: 'up' | 'down') => {
@@ -300,7 +318,12 @@ export function AiImageActionsManager() {
       </div>
 
       {editAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setEditAction(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={handleOverlayClick}>
+          {clickCount > 0 && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-[var(--editor-muted)]">
+              再点击 {CLICK_THRESHOLD - clickCount} 下退出表单填写
+            </div>
+          )}
           <div className="mx-4 w-full max-w-2xl rounded-xl border border-[var(--editor-line)] bg-[var(--editor-panel)] p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
             <h3 className="mb-4 text-lg font-semibold text-[var(--editor-ink)]">
               {isNew ? '新增图片提示' : '编辑图片提示'}
@@ -362,7 +385,7 @@ export function AiImageActionsManager() {
                         className={`rounded-full border px-3 py-1.5 text-sm transition ${
                           (editAction.aspect_ratio || 'auto') === option.value
                             ? 'border-[var(--editor-accent)] bg-[var(--editor-accent)]/10 text-[var(--editor-accent)]'
-                            : 'border-[var(--editor-line)] bg-white text-[var(--editor-ink)] hover:bg-[var(--editor-soft)]'
+                            : 'border-[var(--editor-line)] bg-[var(--editor-panel)] text-[var(--editor-ink)] hover:bg-[var(--editor-soft)]'
                         }`}
                       >
                         {option.label}
@@ -377,7 +400,7 @@ export function AiImageActionsManager() {
                     <select
                       value={editAction.resolution || 'auto'}
                       onChange={(event) => setEditAction({ ...editAction, resolution: event.target.value as AIImageResolution })}
-                      className="w-full rounded-lg border border-[var(--editor-line)] bg-white px-3 py-2 text-sm text-[var(--editor-ink)] outline-none focus:border-[var(--editor-accent)]"
+                      className="w-full rounded-lg border border-[var(--editor-line)] bg-[var(--editor-panel)] px-3 py-2 text-sm text-[var(--editor-ink)] outline-none focus:border-[var(--editor-accent)]"
                     >
                       {AI_IMAGE_RESOLUTION_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { useClickCountClose } from './useClickCountClose'
 
 interface ModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ export function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const { handleOverlayClick, remainingClicks } = useClickCountClose(onClose)
 
   useEffect(() => {
     if (!isOpen) return
@@ -72,9 +74,14 @@ export function Modal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose()
+        if (e.target === e.currentTarget && !submitting) handleOverlayClick()
       }}
     >
+      {remainingClicks > 0 && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-[var(--editor-muted)]">
+          再点击 {remainingClicks} 下退出表单填写
+        </div>
+      )}
       <div
         ref={modalRef}
         className="bg-[var(--editor-panel)] rounded-lg shadow-xl max-w-md w-full animate-in zoom-in-95 duration-200"

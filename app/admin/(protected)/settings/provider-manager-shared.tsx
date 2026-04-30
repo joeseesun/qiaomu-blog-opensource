@@ -1,7 +1,48 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Dropdown } from '@/components/Dropdown'
+
+const CLICK_THRESHOLD = 3
+const CLICK_WINDOW_MS = 5000
+
+function useClickCountClose(onClose: () => void) {
+  const [clickCount, setClickCount] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = undefined
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => clearTimer()
+  }, [clearTimer])
+
+  const handleOverlayClick = useCallback(() => {
+    const newCount = clickCount + 1
+    setClickCount(newCount)
+
+    if (newCount >= CLICK_THRESHOLD) {
+      clearTimer()
+      setClickCount(0)
+      onClose()
+      return
+    }
+
+    clearTimer()
+    timerRef.current = setTimeout(() => {
+      setClickCount(0)
+    }, CLICK_WINDOW_MS)
+  }, [clickCount, onClose, clearTimer])
+
+  const remainingClicks = Math.max(0, CLICK_THRESHOLD - clickCount)
+
+  return { handleOverlayClick, remainingClicks }
+}
 
 export interface BaseProviderProfile {
   id: number
@@ -164,8 +205,14 @@ interface ProviderDialogProps {
 }
 
 export function ProviderDialog({ title, onClose, headerAction, children }: ProviderDialogProps) {
+  const { handleOverlayClick, remainingClicks } = useClickCountClose(onClose)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={handleOverlayClick}>
+      {remainingClicks > 0 && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-[var(--editor-muted)]">
+          再点击 {remainingClicks} 下退出表单填写
+        </div>
+      )}
       <div
         className="mx-4 w-full max-w-2xl rounded-xl border border-[var(--editor-line)] bg-[var(--editor-panel)] p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}
@@ -195,8 +242,14 @@ export function ProviderTemplateModal({
   onClose,
   onSelect,
 }: ProviderTemplateModalProps) {
+  const { handleOverlayClick, remainingClicks } = useClickCountClose(onClose)
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" onClick={handleOverlayClick}>
+      {remainingClicks > 0 && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-[var(--editor-muted)]">
+          再点击 {remainingClicks} 下退出表单填写
+        </div>
+      )}
       <div
         className="mx-4 w-full max-w-xl rounded-xl border border-[var(--editor-line)] bg-[var(--editor-panel)] p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}

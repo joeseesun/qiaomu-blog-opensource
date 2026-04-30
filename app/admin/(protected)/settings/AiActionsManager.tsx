@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Dropdown } from '@/components/Dropdown'
 import { useToast } from '@/components/Toast'
 import { Modal } from '@/components/Modal'
+
+const CLICK_THRESHOLD = 3
+const CLICK_WINDOW_MS = 5000
 
 interface AiAction {
   id: number
@@ -42,6 +45,8 @@ export function AiActionsManager() {
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AiAction | null>(null)
+  const [clickCount, setClickCount] = useState(0)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   const profileOptions = profiles.map(p => ({
     ...p,
@@ -139,6 +144,19 @@ export function AiActionsManager() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '删除失败')
     }
+  }
+
+  const handleOverlayClick = () => {
+    const newCount = clickCount + 1
+    setClickCount(newCount)
+    if (newCount >= CLICK_THRESHOLD) {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+      setClickCount(0)
+      setEditAction(null)
+      return
+    }
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    clickTimerRef.current = setTimeout(() => setClickCount(0), CLICK_WINDOW_MS)
   }
 
   const toggleEnabled = async (action: AiAction) => {
@@ -263,7 +281,12 @@ export function AiActionsManager() {
       </div>
 
       {editAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setEditAction(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={handleOverlayClick}>
+          {clickCount > 0 && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-[var(--editor-muted)]">
+              再点击 {CLICK_THRESHOLD - clickCount} 下退出表单填写
+            </div>
+          )}
           <div className="mx-4 w-full max-w-lg rounded-xl border border-[var(--editor-line)] bg-[var(--editor-panel)] p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="mb-4 text-lg font-semibold text-[var(--editor-ink)]">
               {isNew ? '新增 AI 操作' : '编辑 AI 操作'}

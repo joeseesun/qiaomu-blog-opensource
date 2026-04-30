@@ -335,7 +335,7 @@ body {
 .drag-handle {
   position: fixed;
   opacity: 0.4;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.4s ease, visibility 0.4s;
   cursor: grab;
   width: 20px;
   height: 24px;
@@ -346,8 +346,10 @@ body {
   z-index: 50;
 }
 .drag-handle.hide {
-  opacity: 0 !important;
-  pointer-events: none;
+  /* 临时注释掉隐藏效果，方便调试 */
+  opacity: 0.4 !important;
+  visibility: visible !important;
+  transition: opacity 0.4s ease, visibility 0.4s;
 }
 .drag-handle:hover {
   opacity: 1 !important;
