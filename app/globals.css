@@ -260,6 +260,7 @@ body {
   text-align: left;
   vertical-align: top;
   min-width: 80px;
+  position: relative;
 }
 
 :is(.novel-prose, .rich-content) table th {
@@ -280,6 +281,37 @@ body {
 /* 编辑器中表格选中态 */
 .novel-prose table .selectedCell {
   background: var(--editor-selection);
+}
+
+/* Tiptap column resize handle: 4px invisible zone with explicit cursor +
+   subtle hover highlight so authors can see where to drag. */
+.novel-prose table .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 4px;
+  background: var(--editor-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.novel-prose table th:hover .column-resize-handle,
+.novel-prose table td:hover .column-resize-handle {
+  opacity: 0.4;
+}
+
+/* Default cursor in cells is text; switch to col-resize when prosemirror-tables
+   reports we're in the resize hot zone. */
+.novel-prose table th,
+.novel-prose table td {
+  cursor: text;
+}
+
+.novel-prose .resize-cursor,
+.novel-prose .resize-cursor * {
+  cursor: col-resize !important;
 }
 
 :is(.novel-prose, .rich-content) hr {
@@ -1033,5 +1065,32 @@ body {
 
   .theme-home-terminal .terminal-post-body {
     min-width: 0;
+  }
+
+  /* Reading-side tables on mobile: prefer in-cell wrapping (full-width
+     tbody + table-layout: fixed) and only fall back to horizontal scroll
+     when content can't break (long URLs, code). Without this, a table
+     with min-width: 80px per cell easily overflows a 375px viewport,
+     forcing readers to pinch-zoom the entire page. */
+  .rich-content table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rich-content table thead,
+  .rich-content table tbody {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .rich-content table th,
+  .rich-content table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }

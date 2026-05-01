@@ -37,12 +37,17 @@ import markdownit from 'markdown-it'
 import { useEffect, useState } from 'react'
 import {
   AlignLeft,
+  ArrowDownToLine,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ArrowUpToLine,
   Check,
   CheckSquare,
   ChevronDown,
   Code2,
   Eraser,
   ExternalLink,
+  Heading,
   Heading1,
   Heading2,
   Heading3,
@@ -55,6 +60,7 @@ import {
   Quote,
   RemoveFormatting,
   Sigma,
+  Trash2,
   WandSparkles,
 } from 'lucide-react'
 import { TwitterNode } from './twitter-extension'
@@ -392,7 +398,7 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
     TiptapLink.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    Table.configure({ resizable: false, HTMLAttributes: { class: 'tiptap-table' } }),
+    Table.configure({ resizable: true, HTMLAttributes: { class: 'tiptap-table' } }),
     TableRow,
     TableCell,
     TableHeader,
@@ -999,6 +1005,57 @@ export function FormattingBubble() {
           )}
         </div>
       )}
+    </EditorBubble>
+  )
+}
+
+export function TableBubble() {
+  const { editor } = useEditor()
+  if (!editor) return null
+
+  // novel's useEditor type does not surface @tiptap/extension-table command
+  // augmentation on chain(); cast once locally so each call is concise.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tc = () => (editor.chain().focus() as any)
+
+  return (
+    <EditorBubble
+      tippyOptions={{ placement: 'top', interactive: true, maxWidth: 'none' }}
+      shouldShow={({ editor: currentEditor }) => {
+        if (!currentEditor.isEditable) return false
+        if (!currentEditor.state.selection.empty) return false
+        return currentEditor.isActive('table')
+      }}
+      className="overflow-hidden rounded-xl border border-[var(--editor-line)] bg-white shadow-[0_12px_30px_rgba(37,32,24,0.12)]"
+    >
+      <div className="flex items-center gap-0.5 p-1">
+        <BubbleIconButton label="在上方插入行" onClick={() => tc().addRowBefore().run()}>
+          <ArrowUpToLine className="h-4 w-4" />
+        </BubbleIconButton>
+        <BubbleIconButton label="在下方插入行" onClick={() => tc().addRowAfter().run()}>
+          <ArrowDownToLine className="h-4 w-4" />
+        </BubbleIconButton>
+        <BubbleIconButton label="在左侧插入列" onClick={() => tc().addColumnBefore().run()}>
+          <ArrowLeftToLine className="h-4 w-4" />
+        </BubbleIconButton>
+        <BubbleIconButton label="在右侧插入列" onClick={() => tc().addColumnAfter().run()}>
+          <ArrowRightToLine className="h-4 w-4" />
+        </BubbleIconButton>
+        <span className="mx-1 h-5 w-px bg-[var(--editor-line)]" />
+        <BubbleIconButton label="删除当前行" onClick={() => tc().deleteRow().run()}>
+          <span className="text-xs font-medium">删行</span>
+        </BubbleIconButton>
+        <BubbleIconButton label="删除当前列" onClick={() => tc().deleteColumn().run()}>
+          <span className="text-xs font-medium">删列</span>
+        </BubbleIconButton>
+        <span className="mx-1 h-5 w-px bg-[var(--editor-line)]" />
+        <BubbleIconButton label="切换表头行" onClick={() => tc().toggleHeaderRow().run()}>
+          <Heading className="h-4 w-4" />
+        </BubbleIconButton>
+        <BubbleIconButton label="删除整个表格" onClick={() => tc().deleteTable().run()}>
+          <Trash2 className="h-4 w-4" />
+        </BubbleIconButton>
+      </div>
     </EditorBubble>
   )
 }
