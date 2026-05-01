@@ -936,9 +936,10 @@ body {
   }
 
   .theme-home-editorial .editorial-masthead-title {
-    font-size: clamp(52px, 22vw, 92px) !important;
-    line-height: 0.9 !important;
+    font-size: clamp(40px, 13vw, 64px) !important;
+    line-height: 0.95 !important;
     overflow-wrap: anywhere;
+    letter-spacing: -0.03em !important;
   }
 
   .theme-home-editorial .editorial-masthead-meta,
@@ -950,8 +951,9 @@ body {
   }
 
   .theme-home-editorial .editorial-featured-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) 110px !important;
     gap: 16px !important;
+    align-items: start !important;
   }
 
   .theme-home-editorial .editorial-featured h2,
@@ -979,7 +981,12 @@ body {
   }
 
   .theme-home-editorial .editorial-featured-art {
-    display: none !important;
+    width: 110px !important;
+    max-width: 110px;
+    aspect-ratio: 4 / 5 !important;
+    /* push down ~ HEADLINE label height (10px font ~ 14px line + 18px margin)
+       so the cover's top edge lines up with the h2 article title */
+    margin-top: 32px;
   }
 
   .theme-home-editorial .editorial-index-grid {
