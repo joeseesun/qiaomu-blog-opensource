@@ -126,7 +126,7 @@ export function HomeVariantB({
             fontFamily: '"Noto Serif SC", "Source Han Serif SC", Georgia, serif',
             color: FG,
           }}>
-            乔木<span style={{ color: ACCENT }}>·</span>博客
+            晨启AI<span style={{ color: ACCENT }}>·</span>博客
           </h1>
         </Link>
         <div className="editorial-masthead-meta" style={{
@@ -208,29 +208,47 @@ export function HomeVariantB({
                 </div>
               </div>
 
-              {/* Decorative block */}
-              <div className="editorial-featured-art" style={{
-                width: 200,
-                aspectRatio: '4/5',
-                background: `repeating-linear-gradient(45deg, ${BORDER} 0, ${BORDER} 1px, transparent 1px, transparent 10px)`,
-                border: `1px solid ${BORDER}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <div style={{
-                  fontSize: 'clamp(32px, 5vw, 60px)',
-                  fontWeight: 900,
-                  color: ACCENT,
-                  fontFamily: '"Noto Serif SC", serif',
-                  letterSpacing: '-0.05em',
-                  lineHeight: 0.9,
-                  textAlign: 'center',
+              {/* Cover image (falls back to decorative block when absent) */}
+              {featured.cover_image ? (
+                <div className="editorial-featured-art" style={{
+                  width: 260,
+                  aspectRatio: '4/5',
+                  border: `1px solid ${BORDER}`,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  background: BORDER,
                 }}>
-                  AI<br />·
+                  <img
+                    src={featured.cover_image}
+                    alt={featured.title}
+                    loading="lazy"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="editorial-featured-art" style={{
+                  width: 200,
+                  aspectRatio: '4/5',
+                  background: `repeating-linear-gradient(45deg, ${BORDER} 0, ${BORDER} 1px, transparent 1px, transparent 10px)`,
+                  border: `1px solid ${BORDER}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    fontSize: 'clamp(32px, 5vw, 60px)',
+                    fontWeight: 900,
+                    color: ACCENT,
+                    fontFamily: '"Noto Serif SC", serif',
+                    letterSpacing: '-0.05em',
+                    lineHeight: 0.9,
+                    textAlign: 'center',
+                  }}>
+                    AI<br />·
+                  </div>
+                </div>
+              )}
             </div>
           </Link>
         </section>
@@ -282,6 +300,23 @@ export function HomeVariantB({
                 }}>
                   {String(i + 2).padStart(2, '0')}
                 </div>
+                {post.cover_image && (
+                  <div style={{
+                    width: 112,
+                    aspectRatio: '4/3',
+                    flexShrink: 0,
+                    border: `1px solid ${BORDER}`,
+                    overflow: 'hidden',
+                    background: BORDER,
+                  }}>
+                    <img
+                      src={post.cover_image}
+                      alt={post.title}
+                      loading="lazy"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </div>
+                )}
                 <div style={{ flex: 1, borderTop: `1px solid ${FG}`, paddingTop: 10 }}>
                   {post.category && (
                     <div style={{
@@ -361,7 +396,7 @@ export function HomeVariantB({
         fontFamily: '"JetBrains Mono", ui-monospace, monospace',
         letterSpacing: '0.1em',
       }}>
-        <span>© {new Date().getFullYear()} 乔木博客</span>
+        <span>© {new Date().getFullYear()} 晨启AI博客</span>
         <span>独立 · 不商业化 · RSS 友好</span>
       </div>
 

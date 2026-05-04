@@ -38,7 +38,7 @@ export async function getPosts(
 
   const { results } = await db
     .prepare(
-      `SELECT id, slug, title, description, category, tags, status, password, is_pinned, is_hidden, published_at, view_count
+      `SELECT id, slug, title, description, category, tags, status, password, is_pinned, is_hidden, cover_image, published_at, view_count
        , deleted_at
        FROM posts
        ${where}
@@ -402,7 +402,7 @@ export async function getPostsByCategory(
 ): Promise<PostWithTags[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, slug, title, description, category, tags, status, password, is_pinned, is_hidden, deleted_at, published_at, view_count
+      `SELECT id, slug, title, description, category, tags, status, password, is_pinned, is_hidden, cover_image, deleted_at, published_at, view_count
        FROM posts
        WHERE category = ?
          AND status = 'published'

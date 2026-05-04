@@ -24,29 +24,31 @@ CREATE INDEX idx_posts_slug ON posts(slug);
 CREATE INDEX idx_posts_category ON posts(category);
 CREATE INDEX idx_posts_published ON posts(published_at DESC);
 
--- 全文搜索（SQLite FTS5）
-CREATE VIRTUAL TABLE posts_fts USING fts5(
-  title,
-  content,
-  content=posts,
-  content_rowid=id,
-  tokenize='unicode61'
-);
-
--- 触发器：自动同步 FTS
-CREATE TRIGGER posts_ai AFTER INSERT ON posts BEGIN
-  INSERT INTO posts_fts(rowid, title, content)
-  VALUES (new.id, new.title, new.content);
-END;
-
-CREATE TRIGGER posts_au AFTER UPDATE ON posts BEGIN
-  UPDATE posts_fts SET title = new.title, content = new.content
-  WHERE rowid = new.id;
-END;
-
-CREATE TRIGGER posts_ad AFTER DELETE ON posts BEGIN
-  DELETE FROM posts_fts WHERE rowid = old.id;
-END;
+-- 全文搜索：FTS5 在 Cloudflare D1 上目前有 shadow table 损坏问题
+-- (SQLITE_CORRUPT_VTAB, see emdash-cms/emdash#252). 源码层使用
+-- lib/repositories/search.ts 中的 LIKE 回退已经足够覆盖正常使用，
+-- 待 D1 对 FTS5 支持稳定后，可通过 db/migrations/enable-fts.sql 重新开启。
+-- CREATE VIRTUAL TABLE posts_fts USING fts5(
+--   title,
+--   content,
+--   content=posts,
+--   content_rowid=id,
+--   tokenize='unicode61'
+-- );
+--
+-- CREATE TRIGGER posts_ai AFTER INSERT ON posts BEGIN
+--   INSERT INTO posts_fts(rowid, title, content)
+--   VALUES (new.id, new.title, new.content);
+-- END;
+--
+-- CREATE TRIGGER posts_au AFTER UPDATE ON posts BEGIN
+--   UPDATE posts_fts SET title = new.title, content = new.content
+--   WHERE rowid = new.id;
+-- END;
+--
+-- CREATE TRIGGER posts_ad AFTER DELETE ON posts BEGIN
+--   DELETE FROM posts_fts WHERE rowid = old.id;
+-- END;
 
 -- 分类统计表
 CREATE TABLE categories (

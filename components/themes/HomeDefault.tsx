@@ -49,7 +49,18 @@ export function HomeDefault({
                     href={`/${post.slug}`}
                     className="block py-6 sm:py-7 transition-all duration-200 hover:bg-[var(--editor-panel)] border-l-2 border-l-transparent hover:border-l-[var(--editor-accent)] pl-4"
                   >
-                    <div>
+                    <div className={post.cover_image ? 'flex gap-4 items-start' : ''}>
+                      {post.cover_image && (
+                        <div className="flex-shrink-0 w-32 sm:w-40 aspect-[4/3] overflow-hidden rounded border border-[var(--editor-line)] bg-[var(--editor-panel)]">
+                          <img
+                            src={post.cover_image}
+                            alt={post.title}
+                            loading="lazy"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
                       <h2
                         className="text-xl sm:text-2xl font-bold text-[var(--editor-ink)] leading-snug mb-2 group-hover:text-[var(--editor-accent)] transition-colors duration-200 flex items-center gap-2"
                         style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}
@@ -95,6 +106,7 @@ export function HomeDefault({
                             })()}
                           </>
                         )}
+                      </div>
                       </div>
                     </div>
                   </Link>

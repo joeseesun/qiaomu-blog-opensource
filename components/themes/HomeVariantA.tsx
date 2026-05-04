@@ -83,7 +83,7 @@ export function HomeVariantA({
                       className="refined-post-link"
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '72px 1fr',
+                        gridTemplateColumns: post.cover_image ? '72px 160px 1fr' : '72px 1fr',
                         gap: 28,
                         padding: '32px 0',
                         textDecoration: 'none',
@@ -102,6 +102,26 @@ export function HomeVariantA({
                         <div>{formatDateShort(post.published_at)}</div>
                         <div style={{ fontSize: 11, opacity: 0.7 }}>{formatYear(post.published_at)}</div>
                       </div>
+
+                      {/* Cover image */}
+                      {post.cover_image && (
+                        <div style={{
+                          width: 160,
+                          aspectRatio: '4/3',
+                          overflow: 'hidden',
+                          borderRadius: 4,
+                          border: '1px solid var(--editor-line)',
+                          background: 'var(--editor-panel)',
+                          flexShrink: 0,
+                        }}>
+                          <img
+                            src={post.cover_image}
+                            alt={post.title}
+                            loading="lazy"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                        </div>
+                      )}
 
                       {/* Content */}
                       <div>
