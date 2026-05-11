@@ -110,21 +110,21 @@ function resolveEnv(env?: AIEnv): ResolvedConfig {
 
 export function getAiRuntimeEnv(env?: Partial<CloudflareEnv> | null): AIEnv {
   return {
-    AI_API_KEY: (env as Record<string, string | undefined> | null | undefined)?.AI_API_KEY || process.env.AI_API_KEY,
-    AI_BASE_URL: (env as Record<string, string | undefined> | null | undefined)?.AI_BASE_URL || process.env.AI_BASE_URL,
-    AI_MODEL: (env as Record<string, string | undefined> | null | undefined)?.AI_MODEL || process.env.AI_MODEL,
+    AI_API_KEY: (env as unknown as Record<string, string | undefined> | null | undefined)?.AI_API_KEY || process.env.AI_API_KEY,
+    AI_BASE_URL: (env as unknown as Record<string, string | undefined> | null | undefined)?.AI_BASE_URL || process.env.AI_BASE_URL,
+    AI_MODEL: (env as unknown as Record<string, string | undefined> | null | undefined)?.AI_MODEL || process.env.AI_MODEL,
     WORKERS_AI: env?.WORKERS_AI,
     WORKERS_AI_MODEL:
-      (env as Record<string, string | undefined> | null | undefined)?.WORKERS_AI_MODEL ||
+      (env as unknown as Record<string, string | undefined> | null | undefined)?.WORKERS_AI_MODEL ||
       process.env.WORKERS_AI_MODEL,
     ENABLE_WORKERS_AI:
-      (env as Record<string, string | undefined> | null | undefined)?.ENABLE_WORKERS_AI ||
+      (env as unknown as Record<string, string | undefined> | null | undefined)?.ENABLE_WORKERS_AI ||
       process.env.ENABLE_WORKERS_AI,
     AI_CONFIG_ENCRYPTION_SECRET:
-      (env as Record<string, string | undefined> | null | undefined)?.AI_CONFIG_ENCRYPTION_SECRET ||
+      (env as unknown as Record<string, string | undefined> | null | undefined)?.AI_CONFIG_ENCRYPTION_SECRET ||
       process.env.AI_CONFIG_ENCRYPTION_SECRET,
     ADMIN_TOKEN_SALT:
-      (env as Record<string, string | undefined> | null | undefined)?.ADMIN_TOKEN_SALT ||
+      (env as unknown as Record<string, string | undefined> | null | undefined)?.ADMIN_TOKEN_SALT ||
       process.env.ADMIN_TOKEN_SALT,
   }
 }
@@ -249,7 +249,7 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
 export async function resolveConfig(env?: AIEnv, db?: D1Database, profileId?: number): Promise<ResolvedConfig> {
   if (db) {
     try {
-      const secret = resolveAiConfigSecret(env as Record<string, unknown> | undefined)
+      const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown> | undefined)
       await ensureAiConfigInfrastructure(db, secret)
 
       const selected = Number.isFinite(profileId) && Number(profileId) > 0
