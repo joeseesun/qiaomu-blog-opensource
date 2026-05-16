@@ -73,9 +73,19 @@ import {
   TRIGGER_INPUT_MODAL_EVENT,
 } from './editor-events'
 import { shouldShowEditorBubble } from './editor-bubble'
-import { createDefaultTableContent, hasMarkdownTable, normalizeUrl } from './editor-utils'
+import { createDefaultTableContent, hasMarkdownTable, normalizeUrl, protectAsciiFlowchartsInMarkdown } from './editor-utils'
 
 const md = markdownit({ html: true })
+
+function insertMarkdownFromPlainText(view: EditorView, text: string) {
+  const html = md.render(text)
+  const { state, dispatch } = view
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = html
+  const slice = PMDOMParser.fromSchema(state.schema).parseSlice(wrapper)
+  const tr = state.tr.replaceSelection(slice)
+  dispatch(tr)
+}
 
 function CommandIcon({ label }: { label: string }) {
   return (
@@ -490,15 +500,10 @@ export function buildEditorProps(
       }
 
       const plainText = event.clipboardData?.getData('text/plain') ?? ''
-      if (hasMarkdownTable(plainText)) {
+      const protectedPlainText = protectAsciiFlowchartsInMarkdown(plainText)
+      if (protectedPlainText !== plainText || hasMarkdownTable(plainText)) {
         event.preventDefault()
-        const html = md.render(plainText)
-        const { state, dispatch } = view
-        const wrapper = document.createElement('div')
-        wrapper.innerHTML = html
-        const slice = PMDOMParser.fromSchema(state.schema).parseSlice(wrapper)
-        const tr = state.tr.replaceSelection(slice)
-        dispatch(tr)
+        insertMarkdownFromPlainText(view, protectedPlainText)
         return true
       }
 
