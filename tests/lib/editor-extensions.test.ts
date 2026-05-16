@@ -6,6 +6,7 @@ import {
   createDefaultTableContent,
   hasMarkdownTable,
   normalizeUrl,
+  protectAsciiFlowchartsInMarkdown,
 } from '@/lib/editor-utils'
 
 describe('editor-extensions helpers', () => {
@@ -36,6 +37,83 @@ describe('editor-extensions helpers', () => {
   it('detects markdown tables but ignores ordinary pipe text', () => {
     expect(hasMarkdownTable('| 列1 | 列2 |\n| --- | --- |\n| 值1 | 值2 |')).toBe(true)
     expect(hasMarkdownTable('普通文本 | 只是一个竖线，不是表格')).toBe(false)
+  })
+
+  it('wraps pasted unfenced Unicode flowcharts in text code fences', () => {
+    const input = [
+      '## 8. 整体数据流',
+      '',
+      '工程师在 payments/ 启动任务',
+      '│',
+      '▼',
+      '┌──────────────────────┐',
+      '│ 加载根 CLAUDE.md      │',
+      '└──────────┬───────────┘',
+      '',
+      '后面的正文继续作为普通段落。',
+    ].join('\n')
+
+    expect(protectAsciiFlowchartsInMarkdown(input)).toBe([
+      '## 8. 整体数据流',
+      '',
+      '```text',
+      '工程师在 payments/ 启动任务',
+      '│',
+      '▼',
+      '┌──────────────────────┐',
+      '│ 加载根 CLAUDE.md      │',
+      '└──────────┬───────────┘',
+      '```',
+      '',
+      '后面的正文继续作为普通段落。',
+    ].join('\n'))
+  })
+
+  it('leaves existing fenced flowcharts and ordinary prose untouched', () => {
+    const fenced = [
+      '```text',
+      '┌────┐',
+      '│ OK │',
+      '└────┘',
+      '```',
+      '',
+      '普通文本 | 只是一个竖线，不是表格',
+    ].join('\n')
+
+    expect(protectAsciiFlowchartsInMarkdown(fenced)).toBe(fenced)
+  })
+
+  it('does not treat frontmatter dividers as ASCII diagrams', () => {
+    const markdown = [
+      '---',
+      'title: Claude Code 学习笔记',
+      '---',
+      '',
+      '正文第一段。',
+    ].join('\n')
+
+    expect(protectAsciiFlowchartsInMarkdown(markdown)).toBe(markdown)
+  })
+
+  it('wraps ASCII box diagrams without touching markdown tables', () => {
+    expect(protectAsciiFlowchartsInMarkdown([
+      '+---------+',
+      '| Build   |',
+      '+----+----+',
+      '     |',
+      '     v',
+    ].join('\n'))).toBe([
+      '```text',
+      '+---------+',
+      '| Build   |',
+      '+----+----+',
+      '     |',
+      '     v',
+      '```',
+    ].join('\n'))
+
+    const table = '| A | B |\n| --- | --- |\n| 1 | 2 |'
+    expect(protectAsciiFlowchartsInMarkdown(table)).toBe(table)
   })
 
   it('normalizes URLs by preserving http(s) links and prefixing bare domains', () => {
