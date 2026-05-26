@@ -27,6 +27,12 @@ binding = "DB"
 [[r2_buckets]]
 binding = "IMAGES"
 
+# Optional KV cache for public content pages. Uncomment and fill id after running:
+#   npx wrangler kv namespace create <name> --binding CACHE
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = ""
+
 # Optional Queue binding for background jobs. Uncomment after creating the queue.
 # [[queues.producers]]
 # binding = "BACKGROUND_QUEUE"

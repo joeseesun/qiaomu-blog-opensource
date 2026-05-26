@@ -74,6 +74,8 @@ import {
 } from './editor-events'
 import { shouldShowEditorBubble } from './editor-bubble'
 import { createDefaultTableContent, hasMarkdownTable, normalizeUrl } from './editor-utils'
+import { rehostRemoteImagesInView, shouldRehost } from './remote-image-rehost'
+import { emitEditorRehostToast } from './editor-rehost-toast'
 
 const md = markdownit({ html: true })
 
@@ -419,6 +421,107 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
 
 export const editorExtensions = createEditorExtensions()
 
+const REHOST_URL_SCAN = /https?:\/\/[^\s"'<>)]+/gi
+const REHOST_IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|avif|svg)(?:$|[?#])/i
+const REHOST_MARKDOWN_IMG_RE = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/gi
+const REHOST_HTML_IMG_RE = /<img\b[^>]*\bsrc\s*=\s*['"](https?:\/\/[^'"]+)['"]/gi
+const rehostInFlightViews = new WeakSet<EditorView>()
+
+function collectCandidatePastedImageUrls(plainText: string, htmlRaw: string): Set<string> {
+  const seen = new Set<string>()
+
+  const pushIfImage = (raw: string) => {
+    const trimmed = raw.trim()
+    if (!shouldRehost(trimmed)) return
+    if (!REHOST_IMAGE_EXT_RE.test(trimmed)) return
+    seen.add(trimmed)
+  }
+
+  if (plainText) {
+    const singleUrl = plainText.trim()
+    if (/^https?:\/\/\S+$/.test(singleUrl)) pushIfImage(singleUrl)
+
+    let match
+    while ((match = REHOST_MARKDOWN_IMG_RE.exec(plainText)) !== null) {
+      pushIfImage(match[1])
+    }
+    REHOST_MARKDOWN_IMG_RE.lastIndex = 0
+
+    if (plainText.length <= 50_000) {
+      while ((match = REHOST_URL_SCAN.exec(plainText)) !== null) {
+        pushIfImage(match[0])
+      }
+      REHOST_URL_SCAN.lastIndex = 0
+    }
+  }
+
+  if (htmlRaw) {
+    let match
+    while ((match = REHOST_HTML_IMG_RE.exec(htmlRaw)) !== null) {
+      const candidate = match[1].trim()
+      if (shouldRehost(candidate)) seen.add(candidate)
+    }
+    REHOST_HTML_IMG_RE.lastIndex = 0
+  }
+
+  return seen
+}
+
+function maybeScheduleRemoteImageRehost(view: EditorView, plainText: string, htmlRaw: string) {
+  const candidates = collectCandidatePastedImageUrls(plainText, htmlRaw)
+  if (candidates.size === 0) return
+
+  if (rehostInFlightViews.has(view)) return
+
+  const run = async () => {
+    rehostInFlightViews.add(view)
+    try {
+      emitEditorRehostToast({
+        message: `正在转存 ${candidates.size} 张外链图片…`,
+        variant: 'info',
+        durationMs: 1800,
+      })
+
+      const progress = await rehostRemoteImagesInView(view, {
+        onFail: (src, error) => {
+          emitEditorRehostToast({
+            message: `图片转存失败: ${src}\n${error.message}`,
+            variant: 'error',
+            durationMs: 4500,
+          })
+        },
+      })
+
+      if (progress.total === 0) return
+
+      if (progress.failed === 0) {
+        emitEditorRehostToast({
+          message: `已转存 ${progress.done} 张外链图片到你的图床`,
+          variant: 'success',
+          durationMs: 2500,
+        })
+      } else if (progress.done > 0) {
+        emitEditorRehostToast({
+          message: `${progress.done} 张转存成功，${progress.failed} 张失败`,
+          variant: 'info',
+          durationMs: 3500,
+        })
+      }
+    } finally {
+      rehostInFlightViews.delete(view)
+    }
+  }
+
+  // Defer until after ProseMirror finishes applying the pasted slice & tiptap-markdown transforms.
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(() => {
+      setTimeout(run, 80)
+    })
+  } else {
+    setTimeout(run, 80)
+  }
+}
+
 export function buildEditorProps(
   onImageUpload?: (file: File) => Promise<string>,
   onNonImageFile?: (file: File) => void,
@@ -490,6 +593,9 @@ export function buildEditorProps(
       }
 
       const plainText = event.clipboardData?.getData('text/plain') ?? ''
+      const htmlRaw = event.clipboardData?.getData('text/html') ?? ''
+      maybeScheduleRemoteImageRehost(view, plainText, htmlRaw)
+
       if (hasMarkdownTable(plainText)) {
         event.preventDefault()
         const html = md.render(plainText)

@@ -351,7 +351,7 @@ async function resolveTextRuntime(
     }
 
     if (db) {
-      const secret = resolveAiConfigSecret(env as Record<string, unknown> | undefined)
+      const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown> | undefined)
       const selectedWorkersProfile = await resolveWorkersAiProfile(
         db,
         secret,
@@ -377,7 +377,7 @@ async function resolveTextRuntime(
     throw new Error('文本模型配置缺少数据库上下文')
   }
 
-  const secret = resolveAiConfigSecret(env as Record<string, unknown> | undefined)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown> | undefined)
   const profile = await resolveAiProfileConfig(
     db,
     secret,
@@ -484,7 +484,7 @@ async function generateWorkersAiCover(
       height,
     })
   } else {
-    const secret = resolveAiConfigSecret(input.env as Record<string, unknown> | undefined)
+    const secret = resolveAiConfigSecret(input.env as unknown as Record<string, unknown> | undefined)
     const selectedWorkersProfile = await resolveWorkersAiProfile(input.db, secret)
 
     if (!selectedWorkersProfile) {
@@ -555,7 +555,7 @@ export async function generatePostCover(
   if (generator.provider_mode === 'workers_ai') {
     image = await generateWorkersAiCover(generator, input)
   } else {
-    const secret = resolveAiConfigSecret(input.env as Record<string, unknown> | undefined)
+    const secret = resolveAiConfigSecret(input.env as unknown as Record<string, unknown> | undefined)
     const profile = await resolveAiImageProfileConfig(
       input.db,
       secret,
@@ -577,7 +577,7 @@ export async function generatePostCover(
       resolution: generator.resolution,
       profileId: profile.id,
       db: input.db,
-      env: input.env as Record<string, string | undefined> | undefined,
+      env: input.env as unknown as Record<string, string | undefined> | undefined,
       images: input.images,
     })
   }
