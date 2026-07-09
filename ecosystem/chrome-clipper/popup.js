@@ -201,15 +201,30 @@ btnClip.addEventListener('click', async () => {
 
     if (response && response.success) {
       const apiUrl = data.apiUrl;
+      const editUrl = `${apiUrl}/editor?edit=${response.slug}`;
+      const viewUrl = `${apiUrl}/${response.slug}`;
+
       successTitle.textContent = response.title || title;
       successDetail.textContent = response.imageCount > 0
         ? `上传了 ${response.imageCount} 张图片`
         : '内容已保存';
 
-      btnEdit.href = `${apiUrl}/editor?edit=${response.slug}`;
-      btnView.href = `${apiUrl}/${response.slug}`;
+      btnEdit.href = editUrl;
+      btnView.href = viewUrl;
 
-      showView('success');
+      // 剪藏成功后自动打开草稿编辑页并关闭弹窗
+      // 若 tabs API 不可用或被阻止，则优雅降级到原有 success 视图
+      try {
+        chrome.tabs.create({ url: editUrl, active: true }, () => {
+          if (chrome.runtime.lastError) {
+            showView('success');
+            return;
+          }
+          window.close();
+        });
+      } catch (e) {
+        showView('success');
+      }
     } else {
       errorMessage.textContent = response?.error || '剪藏失败';
       showView('error');

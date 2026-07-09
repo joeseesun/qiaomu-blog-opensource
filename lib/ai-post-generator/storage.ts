@@ -161,7 +161,7 @@ export async function ensureAiPostGeneratorInfrastructure(
   db: D1Database,
   env?: Partial<CloudflareEnv> | null,
 ) {
-  const secret = resolveAiConfigSecret(env as Record<string, unknown> | undefined)
+  const secret = resolveAiConfigSecret(env as unknown as Record<string, unknown> | undefined)
   await ensureAiConfigInfrastructure(db, secret)
   await ensureAiImageConfigInfrastructure(db)
   await ensureAiPostGeneratorsTable(db)
