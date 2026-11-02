@@ -72,3 +72,38 @@ describe('direct extension handoff', () => {
     expect(network).not.toHaveBeenCalled()
   })
 })
+
+
+describe('automatic MP4 uploads in X articles', () => {
+  it('prepares videos and download cards as actual video assets for X', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob([new Uint8Array([1,2,3])], { type: 'video/mp4' }))))
+    const article = { title: '文章中的视频', html: '<p><a href="/demo.mp4">旧 Kindle.mp4</a></p><video src="/another.mp4" title="演示视频"></video>', hasContent: true }
+    const result = await prepareExternalArticle('x', article, new AbortController().signal)
+    expect(result.job.assets).toHaveLength(2)
+    expect(result.job.assets.every(asset => asset.mime === 'video/mp4')).toBe(true)
+    expect(result.job.content.markdown).toMatch(/<video src="https:\/\/qm-image.local\/video-\d+"><\/video>/)
+    expect(result.videoCount).toBe(2)
+    expect(result.videoFallbacks).toBe(0)
+    expect(article.html).toContain('src="/another.mp4"')
+  })
+  it('keeps a video that cannot be read as an inline link instead of requesting a missing upload', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 403 })))
+    const result = await prepareExternalArticle('x', { title: '视频降级', html: '<video src="/demo.mp4" title="演示视频"></video>', hasContent: true }, new AbortController().signal)
+    expect(result.job.assets).toEqual([])
+    expect(result.videoFallbacks).toBe(1)
+    expect(result.job.content.markdown).toContain('视频：[演示视频](https://blog.qiaomu.ai/demo.mp4)')
+    expect(result.job.content.markdown).not.toContain('<video')
+  })
+  it('continues to export videos as links for Zhihu', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    const result = await prepareExternalArticle('zhihu', { title: '知乎视频', html: '<video src="/demo.mp4"></video>', hasContent: true }, new AbortController().signal)
+    expect(result.job.assets).toEqual([])
+    expect(result.job.content.html).toContain('href="https://blog.qiaomu.ai/demo.mp4"')
+    expect(result.videoCount).toBe(0)
+  })
+})
