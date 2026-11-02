@@ -3,7 +3,7 @@ import TurndownService from 'turndown'
 export type ExternalPublishTarget = 'x' | 'zhihu'
 export interface PublishArticle { title: string; html: string; hasContent: boolean; cover?: string; summary?: string }
 export interface PublishProgress { state: 'running' | 'done' | 'error' | 'cancelled'; text?: string; url?: string; error?: { message?: string } }
-export const PUBLISH_BRIDGE_URL = 'http://127.0.0.1:19876'
+const PUBLISH_CHANNEL = 'qiaomu-web-publish-v1'
 
 export function draftUrl(target: ExternalPublishTarget, value?: string) {
   if (!value) return undefined
@@ -14,13 +14,46 @@ export function draftUrl(target: ExternalPublishTarget, value?: string) {
   } catch { return undefined }
 }
 
-export async function bridgeRequest(path: string, init: RequestInit = {}) {
-  let response: Response
-  try { response = await fetch(`${PUBLISH_BRIDGE_URL}${path}`, { ...init, signal: init.signal ?? AbortSignal.timeout(8000) }) }
-  catch { throw new Error('未连接本机发布桥接。请先运行 npm run publish:bridge，并允许浏览器访问本地网络。') }
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.error || '发布桥接请求失败')
-  return result
+/** Direct same-page handoff to the extension's isolated content script. No local HTTP service. */
+export function requestPublishExtension<T = unknown>(kind: 'ping' | 'start' | 'status' | 'cancel', payload?: unknown, signal?: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException('已停止', 'AbortError')); return }
+    const id = crypto.randomUUID()
+    const cleanup = () => { clearTimeout(timer); window.removeEventListener('message', receive); signal?.removeEventListener('abort', stop) }
+    const stop = () => { cleanup(); reject(new DOMException('已停止', 'AbortError')) }
+    const receive = (event: MessageEvent) => {
+      const message = event.data
+      if (event.source !== window || event.origin !== location.origin || message?.channel !== PUBLISH_CHANNEL || message.direction !== 'response' || message.id !== id) return
+      cleanup()
+      if (message.result?.error && typeof message.result.error === 'string') reject(new Error(message.result.error))
+      else resolve(message.result as T)
+    }
+    const timer = setTimeout(() => { cleanup(); reject(new Error(kind === 'ping' ? '浏览器发布连接尚未就绪，请稍后重试。' : '浏览器发布连接超时，请检查平台草稿后重试。')) }, kind === 'start' ? 30_000 : 3000)
+    window.addEventListener('message', receive)
+    signal?.addEventListener('abort', stop, { once: true })
+    window.postMessage({ channel: PUBLISH_CHANNEL, direction: 'request', id, kind, payload }, location.origin)
+  })
+}
+
+/** Convert unsupported players only in the sending copy; never mutate the editor. */
+export function normalizePublishEmbeds(doc: Document, base: string) {
+  let converted = 0
+  for (const node of Array.from(doc.querySelectorAll('video,audio,iframe,div[data-twitter-src]'))) {
+    if (!doc.body.contains(node)) continue
+    const source = node.getAttribute('data-twitter-src') || node.getAttribute('src') || node.querySelector('source')?.getAttribute('src') || node.closest('a[href]')?.getAttribute('href') || ''
+    const paragraph = doc.createElement('p')
+    try {
+      const url = new URL(source, base)
+      if (!source || !['https:', 'http:'].includes(url.protocol)) throw new Error('unsupported')
+      if (['www.youtube.com', 'www.youtube-nocookie.com', 'youtube.com'].includes(url.hostname) && url.pathname.startsWith('/embed/')) { url.hostname = 'www.youtube.com'; const id = url.pathname.split('/')[2]; url.pathname = '/watch'; url.search = ''; url.searchParams.set('v', id) }
+      if (url.hostname === 'player.bilibili.com' && url.searchParams.get('bvid')) { const id = url.searchParams.get('bvid'); url.hostname = 'www.bilibili.com'; url.pathname = `/video/${id}`; url.search = '' }
+      const link = doc.createElement('a'); link.href = url.href
+      link.textContent = node.getAttribute('title') || (node.tagName === 'AUDIO' ? '收听音频' : node.hasAttribute('data-twitter-src') ? '查看原帖' : '查看视频或原内容')
+      paragraph.appendChild(link)
+    } catch { paragraph.textContent = node.getAttribute('title') || '此媒体请查看原文。' }
+    node.replaceWith(paragraph); converted += 1
+  }
+  return converted
 }
 
 /** Build the same v1 job consumed by Qiaomu Publish's Clipper adapter. Images never go through a cloud relay. */
@@ -29,7 +62,7 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
   if (!title || !article.hasContent) throw new Error('请先填写标题和正文。')
   if (target === 'zhihu' && Array.from(title).length > 100) throw new Error('知乎标题不能超过 100 字。')
   const doc = new DOMParser().parseFromString(article.html, 'text/html')
-  if (doc.querySelector('video,audio,iframe')) throw new Error('正文包含视频、音频或嵌入内容，请先替换为图片或链接再发送。')
+  const convertedEmbeds = normalizePublishEmbeds(doc, location.href)
   doc.querySelectorAll('script,style,object,embed').forEach(node => node.remove())
   doc.querySelectorAll('*').forEach(node => {
     for (const attribute of [...node.attributes]) if (/^on/i.test(attribute.name) || ['srcset', 'style'].includes(attribute.name)) node.removeAttribute(attribute.name)
@@ -56,7 +89,7 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     assets.push({ id, name: `${id}.${blob.type.split('/')[1]}`, mime: blob.type, bytes: blob.size, base64: btoa(binary) })
     cache.set(url.href, id); return id
   }
-  for (const node of doc.querySelectorAll('img')) {
+  for (const node of Array.from(doc.querySelectorAll('img'))) {
     const source = node.getAttribute('src')
     if (!source) throw new Error('正文有图片缺少地址，请删除或重新插入。')
     node.setAttribute('src', `${target === 'x' ? 'https://qm-image.local/' : 'qp-asset://'}${await image(source)}`)
@@ -69,5 +102,5 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     td.keep(['table'])
     content.markdown = `---\ntitle: ${JSON.stringify(title)}\n${cover ? `cover: ${JSON.stringify(`https://qm-image.local/${cover}`)}\n` : ''}---\n\n${td.turndown(doc.body.innerHTML)}`
   } else content.html = doc.body.innerHTML
-  return { job: { v: 1, id: crypto.randomUUID(), target, title, noteName: title, content, assets: assets.map(({ id, name, mime, bytes }) => ({ id, name, mime, bytes })) }, assets }
+  return { job: { v: 1, id: crypto.randomUUID(), target, title, noteName: title, content, assets: assets.map(({ id, name, mime, bytes }) => ({ id, name, mime, bytes })) }, assets, convertedEmbeds }
 }
