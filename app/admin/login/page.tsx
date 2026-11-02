@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Suspense, useState, type FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { resolveLoginRedirect } from '@/lib/login-redirect'
 
 function AdminLoginForm() {
   const [password, setPassword] = useState('')
@@ -28,11 +29,14 @@ function AdminLoginForm() {
       const data = await res.json().catch(() => null) as { error?: string } | null
 
       if (res.ok) {
-        const redirectTo = searchParams.get('redirect_to') || '/admin'
-        // 安全检查：只允许跳转到本站路径
-        const safePath = redirectTo.startsWith('/') ? redirectTo : '/admin'
-        router.push(safePath)
-        router.refresh()
+        // 安全检查：只允许跳转到本站路径或白名单站点（www.qiaomu.ai 的随想发布入口）
+        const target = resolveLoginRedirect(searchParams.get('redirect_to'))
+        if (target.startsWith('/')) {
+          router.push(target)
+          router.refresh()
+        } else {
+          window.location.assign(target)
+        }
       } else {
         setError(
           typeof data?.error === 'string'

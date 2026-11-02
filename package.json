@@ -17,7 +17,8 @@
     "cf-typegen": "bash scripts/cf-typegen.sh",
     "cf:init": "bash scripts/cf-init.sh",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "publish:bridge": "node tools/publish-bridge/server.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.47",

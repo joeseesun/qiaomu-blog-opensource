@@ -1,9 +1,11 @@
 'use client'
 
+import { PublishChannelMenu } from '@/components/PublishChannelMenu'
+
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
-import { Download, FileDown, ImageIcon, Pilcrow, Send, WandSparkles } from 'lucide-react'
+import { Download, FileDown, ImageIcon, Pilcrow, WandSparkles } from 'lucide-react'
 import {
   EditorContent,
   EditorInstance,
@@ -723,15 +725,12 @@ export function InlineArticleEditor({
                 buttonClassName="inline-flex h-6 w-6 items-center justify-center rounded text-[var(--stone-gray)] transition hover:bg-[var(--editor-accent)]/8 hover:text-[var(--editor-accent)]"
                 iconClassName="h-3.5 w-3.5"
               />
-              <button
-                type="button"
-                onClick={handleOpenWechatPublish}
-                className="inline-flex h-6 w-6 items-center justify-center rounded text-[var(--stone-gray)] transition hover:bg-[var(--editor-accent)]/8 hover:text-[var(--editor-accent)]"
-                title="发布到公众号"
-                aria-label="发布到公众号"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
+              <PublishChannelMenu
+                onWechat={handleOpenWechatPublish}
+                getArticle={() => ({ ...getCurrentExport(), cover: coverImage, summary: '' })}
+                buttonClassName="inline-flex h-6 w-6 items-center justify-center rounded text-[var(--stone-gray)] transition hover:bg-[var(--editor-accent)]/8 hover:text-[var(--editor-accent)]"
+                iconClassName="h-3.5 w-3.5"
+              />
               <button
                 type="button"
                 onClick={handleDownloadPdf}

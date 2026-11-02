@@ -1,5 +1,7 @@
 'use client'
 
+import { PublishChannelMenu } from '@/components/PublishChannelMenu'
+
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
@@ -13,7 +15,6 @@ import {
   Lock,
   Link2,
   FileDown,
-  Send,
   Smartphone,
   Pilcrow,
   PanelRightOpen,
@@ -1743,14 +1744,12 @@ export function NovelEditor({ initialData }: NovelEditorProps = {}) {
               iconClassName="h-4 w-4"
             />
 
-            <button
-              type="button"
-              onClick={handleOpenWechatPublish}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--editor-muted)] hover:bg-[var(--editor-soft)] hover:text-[var(--editor-accent)] transition"
-              title="发布到公众号"
-            >
-              <Send className="h-4 w-4" />
-            </button>
+            <PublishChannelMenu
+              onWechat={handleOpenWechatPublish}
+              getArticle={() => ({ ...getCurrentCopyExport(), cover: coverImage, summary: description })}
+              buttonClassName="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--editor-muted)] hover:bg-[var(--editor-soft)] hover:text-[var(--editor-accent)] transition"
+              iconClassName="h-4 w-4"
+            />
 
             <button
               type="button"

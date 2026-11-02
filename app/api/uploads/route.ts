@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAppCloudflareEnv } from '@/lib/cloudflare'
 import { authenticateRequest } from '@/lib/admin-auth'
 import { nanoid } from 'nanoid'
+import { corsPreflight, isTrustedWriteOrigin, withCors } from '@/lib/server/cors'
 import { linkMediaAssetToArticle, upsertMediaAsset, type MediaAssetSource } from '@/lib/repositories/media-assets'
 
 type ImageBucket = {
@@ -133,7 +134,7 @@ async function calculateHash(file: File): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
 }
 
-export async function POST(req: NextRequest) {
+async function handleUpload(req: NextRequest) {
   try {
     // 认证：Cookie OR Bearer Token
     const env = (await getAppCloudflareEnv()) as RuntimeEnv & { DB?: D1Database }
@@ -294,4 +295,16 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// www.qiaomu.ai/notes/ uploads memo media here with the admin cookie.
+export function OPTIONS(req: NextRequest) {
+  return corsPreflight(req, 'POST, OPTIONS')
+}
+
+export async function POST(req: NextRequest) {
+  if (!isTrustedWriteOrigin(req)) {
+    return withCors(req, NextResponse.json({ error: 'Forbidden origin' }, { status: 403 }))
+  }
+  return withCors(req, await handleUpload(req))
 }
