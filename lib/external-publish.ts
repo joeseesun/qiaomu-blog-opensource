@@ -5,6 +5,39 @@ export interface PublishArticle { title: string; html: string; hasContent: boole
 export interface PublishProgress { state: 'running' | 'done' | 'error' | 'cancelled'; text?: string; url?: string; error?: { message?: string } }
 const PUBLISH_CHANNEL = 'qiaomu-web-publish-v1'
 
+/** Rasterize only the sending copy. SVG is supported by the blog but not draft uploads. */
+async function preparePublishImage(blob: Blob, signal: AbortSignal): Promise<Blob> {
+  if (blob.type.split(';')[0].trim().toLowerCase() !== 'image/svg+xml') return blob
+  signal.throwIfAborted()
+  const url = URL.createObjectURL(blob)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      const cleanup = () => { img.onload = null; img.onerror = null; signal.removeEventListener('abort', abort) }
+      const abort = () => { cleanup(); img.src = ''; reject(signal.reason) }
+      img.onload = () => { cleanup(); resolve(img) }
+      img.onerror = () => { cleanup(); reject(new Error('SVG 图片转换失败，请重新上传图片后再发送。')) }
+      signal.addEventListener('abort', abort, { once: true })
+      img.src = url
+    })
+    signal.throwIfAborted()
+    const width = image.naturalWidth
+    const height = image.naturalHeight
+    if (!width || !height || width * height > 32 * 1024 * 1024) throw new Error('SVG 图片尺寸无效或过大，请缩小后再发送。')
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('无法转换 SVG 图片，请使用支持画布的浏览器。')
+    context.drawImage(image, 0, 0)
+    const png = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(value => value ? resolve(value) : reject(new Error('SVG 图片转换失败，请重新上传图片后再发送。')), 'image/png')
+    })
+    signal.throwIfAborted()
+    return png
+  } finally { URL.revokeObjectURL(url) }
+}
+
 export function draftUrl(target: ExternalPublishTarget, value?: string) {
   if (!value) return undefined
   try {
@@ -97,7 +130,9 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     onProgress?.(`正在读取${video ? '视频' : '图片'} ${assets.length + 1}…`)
     const response = await fetch(url.href, { signal, credentials: 'same-origin' })
     if (!response.ok) throw new Error('图片读取失败，请先将外链图片保存到博客。')
-    const blob = await response.blob()
+    let blob = await response.blob()
+    if (blob.size > (video ? 32 : 20) * 1024 * 1024) throw new Error('媒体文件超过本次自动传输容量')
+    if (!video) blob = await preparePublishImage(blob, signal)
     if (video ? blob.type !== 'video/mp4' : !/^image\/(png|jpeg|webp|gif)$/.test(blob.type)) throw new Error('请将图片转为 PNG、JPEG、WebP 或 GIF 后再发送。')
     if (blob.size > (video ? 32 : 20) * 1024 * 1024 || total + blob.size > 40 * 1024 * 1024) throw new Error('媒体文件超过本次自动传输容量')
     total += blob.size

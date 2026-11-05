@@ -107,3 +107,72 @@ describe('automatic MP4 uploads in X articles', () => {
     expect(result.videoCount).toBe(0)
   })
 })
+
+describe('SVG draft images', () => {
+  function setup(options: { fail?: boolean; width?: number; height?: number; pending?: boolean; output?: Blob | null } = {}) {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    const revoke = vi.fn()
+    const create = vi.fn(() => 'blob:svg-copy')
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = create
+      static revokeObjectURL = revoke
+    })
+    vi.stubGlobal('Image', class {
+      naturalWidth = options.width ?? 1200
+      naturalHeight = options.height ?? 800
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(value: string) {
+        if (!value || options.pending) return
+        queueMicrotask(() => options.fail ? this.onerror?.() : this.onload?.())
+      }
+    })
+    const drawImage = vi.fn()
+    vi.stubGlobal('document', { createElement: () => ({
+      getContext: () => ({ drawImage }),
+      toBlob: (callback: (blob: Blob | null) => void, mime: string) => {
+        expect(mime).toBe('image/png')
+        callback(options.output === undefined ? new Blob(['converted'], { type: 'image/png' }) : options.output)
+      },
+    }) })
+    const fetcher = vi.fn(async () => new Response(new Blob(['<svg/>'], { type: 'image/svg+xml' })))
+    vi.stubGlobal('fetch', fetcher)
+    return { revoke, create, drawImage, fetcher }
+  }
+  const article = { title: 'SVG 示例', html: '<p><img src="/logo.svg"></p><img src="/logo.svg">', cover: '/logo.svg', hasContent: true }
+  for (const target of ['x', 'zhihu'] as const) {
+    it(`converts body and cover SVGs once to PNG for ${target} without changing the source`, async () => {
+      const { revoke, drawImage, fetcher } = setup()
+      const original = { ...article }
+      const result = await prepareExternalArticle(target, article, new AbortController().signal)
+      expect(result.assets).toEqual([{ id: 'image-1', name: 'image-1.png', mime: 'image/png', bytes: 9, base64: btoa('converted') }])
+      expect(result.job.content.cover).toBe('image-1')
+      expect(fetcher).toHaveBeenCalledTimes(1)
+      expect(drawImage).toHaveBeenCalledTimes(1)
+      expect(revoke).toHaveBeenCalledWith('blob:svg-copy')
+      expect(article).toEqual(original)
+    })
+  }
+  it.each([{ fail: true }, { width: 0 }, { width: 100000, height: 100000 }, { output: null }])('rejects failed/unsafe conversions and releases the object URL: %j', async options => {
+    const { revoke } = setup(options)
+    await expect(prepareExternalArticle('x', article, new AbortController().signal)).rejects.toThrow(/SVG/)
+    expect(revoke).toHaveBeenCalledWith('blob:svg-copy')
+  })
+  it('cancels while loading the SVG and releases the object URL', async () => {
+    const { revoke, create } = setup({ pending: true })
+    const controller = new AbortController()
+    const result = prepareExternalArticle('x', article, controller.signal)
+    const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    await vi.waitFor(() => expect(create).toHaveBeenCalled())
+    controller.abort()
+    await assertion
+    expect(revoke).toHaveBeenCalledWith('blob:svg-copy')
+  })
+  it('preserves supported animated GIF assets byte for byte', async () => {
+    setup()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['GIF89a'], { type: 'image/gif' }))))
+    const result = await prepareExternalArticle('x', article, new AbortController().signal)
+    expect(result.assets[0]).toMatchObject({ mime: 'image/gif', name: 'image-1.gif', base64: btoa('GIF89a') })
+  })
+})
