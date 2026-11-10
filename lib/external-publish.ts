@@ -4,6 +4,11 @@ export type ExternalPublishTarget = 'x' | 'zhihu'
 export interface PublishArticle { title: string; html: string; hasContent: boolean; cover?: string; summary?: string }
 export interface PublishProgress { state: 'running' | 'done' | 'error' | 'cancelled'; text?: string; url?: string; error?: { message?: string } }
 const PUBLISH_CHANNEL = 'qiaomu-web-publish-v1'
+type PublishAsset = { id: string; name: string; mime: string; bytes: number }
+type PublishFile = PublishAsset & { base64: string }
+type PublishStaging = { jobId: string; send: (asset: PublishFile) => Promise<void> }
+type PublishRequest = 'ping' | 'start' | 'status' | 'cancel' | 'prepare' | 'asset' | 'discard' | 'start-staged'
+class PublishTransferError extends Error {}
 
 /** Rasterize only the sending copy. SVG is supported by the blog but not draft uploads. */
 async function preparePublishImage(blob: Blob, signal: AbortSignal): Promise<Blob> {
@@ -48,7 +53,7 @@ export function draftUrl(target: ExternalPublishTarget, value?: string) {
 }
 
 /** Direct same-page handoff to the extension's isolated content script. No local HTTP service. */
-export function requestPublishExtension<T = unknown>(kind: 'ping' | 'start' | 'status' | 'cancel', payload?: unknown, signal?: AbortSignal): Promise<T> {
+export function requestPublishExtension<T = unknown>(kind: PublishRequest, payload?: unknown, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new DOMException('已停止', 'AbortError')); return }
     const id = crypto.randomUUID()
@@ -61,7 +66,8 @@ export function requestPublishExtension<T = unknown>(kind: 'ping' | 'start' | 's
       if (message.result?.error && typeof message.result.error === 'string') reject(new Error(message.result.error))
       else resolve(message.result as T)
     }
-    const timer = setTimeout(() => { cleanup(); reject(new Error(kind === 'ping' ? '浏览器发布连接尚未就绪，请稍后重试。' : '浏览器发布连接超时，请检查平台草稿后重试。')) }, kind === 'start' ? 30_000 : 3000)
+    const timeout = kind === 'start' || kind === 'start-staged' || kind === 'asset' ? 30_000 : 3000
+    const timer = setTimeout(() => { cleanup(); reject(new Error(kind === 'ping' ? '浏览器发布连接尚未就绪，请稍后重试。' : '浏览器发布连接超时，请检查平台草稿后重试。')) }, timeout)
     window.addEventListener('message', receive)
     signal?.addEventListener('abort', stop, { once: true })
     window.postMessage({ channel: PUBLISH_CHANNEL, direction: 'request', id, kind, payload }, location.origin)
@@ -105,7 +111,7 @@ export function normalizePublishEmbeds(doc: Document, base: string, keepMp4 = fa
 }
 
 /** Build the same v1 job consumed by Qiaomu Publish's Clipper adapter. Images never go through a cloud relay. */
-export async function prepareExternalArticle(target: ExternalPublishTarget, article: PublishArticle, signal: AbortSignal, onProgress?: (text: string) => void) {
+export async function prepareExternalArticle(target: ExternalPublishTarget, article: PublishArticle, signal: AbortSignal, onProgress?: (text: string) => void, staging?: PublishStaging) {
   const title = article.title.trim()
   if (!title || !article.hasContent) throw new Error('请先填写标题和正文。')
   if (target === 'zhihu' && Array.from(title).length > 100) throw new Error('知乎标题不能超过 100 字。')
@@ -120,27 +126,43 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
   doc.querySelectorAll('a[href]').forEach(node => {
     try { const url = new URL(node.getAttribute('href')!, location.href); if (!['https:', 'http:'].includes(url.protocol)) node.removeAttribute('href'); else node.setAttribute('href', url.href) } catch { node.removeAttribute('href') }
   })
-  const assets: { id: string; name: string; mime: string; bytes: number; base64: string }[] = []
+  const assets: PublishFile[] = []
+  const manifest: PublishAsset[] = []
   const cache = new Map<string, string>()
   let total = 0
   const image = async (source: string, video = false) => {
     const url = new URL(source, location.href)
     if (!['https:', 'http:', 'data:', 'blob:'].includes(url.protocol)) throw new Error('图片地址无效')
     const cached = cache.get(url.href); if (cached) return cached
-    onProgress?.(`正在读取${video ? '视频' : '图片'} ${assets.length + 1}…`)
+    const index = manifest.length + 1
+    if (index > 100) throw new PublishTransferError('一篇草稿最多发送 100 个媒体文件。')
+    onProgress?.(`正在读取${video ? '视频' : '图片'} ${index}…`)
     const response = await fetch(url.href, { signal, credentials: 'same-origin' })
     if (!response.ok) throw new Error('图片读取失败，请先将外链图片保存到博客。')
     let blob = await response.blob()
-    if (blob.size > (video ? 32 : 20) * 1024 * 1024) throw new Error('媒体文件超过本次自动传输容量')
+    if (!blob.size) throw new Error('媒体文件为空，请重新插入后再发送。')
+    const fileLimit = video ? 32 : 20
+    const tooLarge = () => new Error(`单个${video ? '视频' : '图片'}超过 ${fileLimit} MB，请缩小后重试。`)
+    if (blob.size > fileLimit * 1024 * 1024) throw tooLarge()
     if (!video) blob = await preparePublishImage(blob, signal)
     if (video ? blob.type !== 'video/mp4' : !/^image\/(png|jpeg|webp|gif)$/.test(blob.type)) throw new Error('请将图片转为 PNG、JPEG、WebP 或 GIF 后再发送。')
-    if (blob.size > (video ? 32 : 20) * 1024 * 1024 || total + blob.size > 40 * 1024 * 1024) throw new Error('媒体文件超过本次自动传输容量')
+    if (blob.size > fileLimit * 1024 * 1024) throw tooLarge()
+    if (!staging && total + blob.size > 40 * 1024 * 1024) throw new PublishTransferError('当前的乔木剪藏版本一次最多发送 40 MB 媒体，请更新扩展后重试。')
     total += blob.size
     const bytes = new Uint8Array(await blob.arrayBuffer())
     let binary = ''
     for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-    const id = `${video ? 'video' : 'image'}-${assets.length + 1}`
-    assets.push({ id, name: `${id}.${blob.type.split('/')[1]}`, mime: blob.type, bytes: blob.size, base64: btoa(binary) })
+    signal.throwIfAborted()
+    const id = `${video ? 'video' : 'image'}-${index}`
+    const meta = { id, name: `${id}.${blob.type.split('/')[1]}`, mime: blob.type, bytes: blob.size }
+    const file = { ...meta, base64: btoa(binary) }
+    if (staging) {
+      onProgress?.(`正在传输${video ? '视频' : '图片'} ${index}…`)
+      try { await staging.send(file) } catch (error) {
+        throw new PublishTransferError(error instanceof Error ? error.message : '媒体传输中断，请重试。')
+      }
+    } else assets.push(file)
+    manifest.push(meta)
     cache.set(url.href, id); return id
   }
   for (const node of Array.from(doc.querySelectorAll('img'))) {
@@ -163,7 +185,7 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
         const id = await image(source, true)
         video.setAttribute('src', `https://qm-image.local/${id}`); videoCount += 1
       } catch (error) {
-        if (signal.aborted) throw error
+        if (signal.aborted || (staging && error instanceof PublishTransferError)) throw error
         const link = doc.createElement('a'); link.setAttribute('href', source); link.textContent = video.getAttribute('title') || '查看视频'; video.replaceWith(link); videoFallbacks += 1
       }
     }
@@ -178,5 +200,5 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     td.addRule('article-video', { filter: 'video', replacement: (_content, node) => `\n\n<video src="${node.getAttribute('src')}"></video>\n\n` })
     content.markdown = `---\ntitle: ${JSON.stringify(title)}\n${cover ? `cover: ${JSON.stringify(`https://qm-image.local/${cover}`)}\n` : ''}---\n\n${td.turndown(doc.body.innerHTML)}`
   } else content.html = doc.body.innerHTML
-  return { job: { v: 1, id: crypto.randomUUID(), target, title, noteName: title, content, assets: assets.map(({ id, name, mime, bytes }) => ({ id, name, mime, bytes })) }, assets, convertedEmbeds, videoCount, videoFallbacks }
+  return { job: { v: 1, id: staging?.jobId ?? crypto.randomUUID(), target, title, noteName: title, content, assets: manifest }, assets, convertedEmbeds, videoCount, videoFallbacks }
 }

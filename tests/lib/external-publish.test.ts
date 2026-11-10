@@ -73,6 +73,47 @@ describe('direct extension handoff', () => {
   })
 })
 
+describe('large draft media', () => {
+  it('sends original files one at a time beyond 40 MiB, and asks legacy users to update', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    const bytes = 14 * 1024 * 1024
+    const bitmap = new Blob([new Uint8Array(bytes)], { type: 'image/png' })
+    const gif = new Blob([new Uint8Array(bytes).fill(1)], { type: 'image/gif' })
+    const fetcher = vi.fn(async (url: string) => new Response(url.endsWith('.gif') ? gif : bitmap))
+    vi.stubGlobal('fetch', fetcher)
+    const html = '<p><img src="/first.png"><img src="/motion.gif"><img src="/last.png"></p>'
+    const article = { title: '多图长稿', html, cover: '/first.png', hasContent: true }
+    const signal = new AbortController().signal
+    const sent: string[] = []
+    const result = await prepareExternalArticle('zhihu', article, signal, undefined, {
+      jobId: 'large-draft',
+      async send(asset) {
+        expect(asset.bytes).toBe(bytes)
+        expect(asset.base64.slice(0, 4)).toBe(asset.mime === 'image/gif' ? 'AQEB' : 'AAAA')
+        sent.push(asset.id)
+      },
+    })
+    expect(sent).toEqual(['image-1', 'image-2', 'image-3'])
+    expect(fetcher).toHaveBeenCalledTimes(3)
+    expect(result.job).toMatchObject({ id: 'large-draft', content: { cover: 'image-1' } })
+    expect(result.job.assets.map(asset => asset.mime)).toEqual(['image/png', 'image/gif', 'image/png'])
+    expect(result.assets).toEqual([])
+    expect(article.html).toBe(html)
+    await expect(prepareExternalArticle('zhihu', article, signal)).rejects.toThrow(/更新扩展/)
+  }, 15_000)
+
+  it('stops the draft if a prepared X video fails to reach the extension', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' }))))
+    const article = { title: '视频', html: '<video src="/demo.mp4"></video>', hasContent: true }
+    await expect(prepareExternalArticle('x', article, new AbortController().signal, undefined, {
+      jobId: 'video-draft',
+      async send() { throw new Error('浏览器连接已中断') },
+    })).rejects.toThrow('浏览器连接已中断')
+  })
+})
 
 describe('automatic MP4 uploads in X articles', () => {
   it('prepares videos and download cards as actual video assets for X', async () => {
