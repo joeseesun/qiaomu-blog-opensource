@@ -217,3 +217,39 @@ describe('SVG draft images', () => {
     expect(result.assets[0]).toMatchObject({ mime: 'image/gif', name: 'image-1.gif', base64: btoa('GIF89a') })
   })
 })
+
+describe('X article media limit', () => {
+  it.each([undefined, '/0.png', '/separate-cover.png'])('trims trailing images before any fetch or transfer with cover %s', async cover => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    const fetcher = vi.fn(async (_url: string) => new Response(new Blob(['image'], { type: 'image/png' })))
+    vi.stubGlobal('fetch', fetcher)
+    const html = Array.from({ length: 29 }, (_, index) => `<p><img src="/${index}.png" alt="image-${index}"></p>`).join('') + '<p>最后一段</p>'
+    const article = { title: '多图文章', html, hasContent: true, cover }
+    const send = vi.fn(async () => {})
+    const result = await prepareExternalArticle('x', article, new AbortController().signal, undefined, { jobId: 'image-cap', send })
+    const separate = cover === '/separate-cover.png'
+    expect(send).toHaveBeenCalledTimes(25)
+    expect(result.omittedMedia).toBe(separate ? 5 : 4)
+    expect(fetcher.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+      ...Array.from({ length: separate ? 24 : 25 }, (_, index) => `/${index}.png`),
+      ...(separate ? [cover] : []),
+    ])
+    expect(result.job.content.markdown).toContain('最后一段')
+    expect(result.job.content.markdown).not.toContain('![image-28]')
+    expect(article.html).toBe(html)
+  })
+
+  it('keeps overflow video and table content readable without fetching them', async () => {
+    vi.stubGlobal('DOMParser', class { parseFromString(html: string) { return documentOf(html) } })
+    vi.stubGlobal('location', { href: 'https://blog.qiaomu.ai/editor' })
+    const fetcher = vi.fn(async () => new Response(new Blob(['image'], { type: 'image/png' })))
+    vi.stubGlobal('fetch', fetcher)
+    const html = '<p><img src="/image.png"></p>'.repeat(25) + '<video src="/demo.mp4" title="演示"></video><table><tr><td>表格数据</td></tr></table>'
+    const result = await prepareExternalArticle('x', { title: '图文', html, hasContent: true }, new AbortController().signal)
+    expect(result.omittedMedia).toBe(2)
+    expect(result.job.content.markdown).toContain('[演示](https://blog.qiaomu.ai/demo.mp4)')
+    expect(result.job.content.markdown).toContain('表格数据')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+})

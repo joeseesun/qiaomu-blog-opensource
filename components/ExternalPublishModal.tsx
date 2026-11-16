@@ -11,7 +11,7 @@ export function ExternalPublishModal({ target, getArticle, onClose }: { target: 
   const active = useRef<string | null>(null)
   const [status, setStatus] = useState<PublishProgress | null>(null)
   const [converted, setConverted] = useState(false)
-  const [videoNote, setVideoNote] = useState('')
+  const [mediaNote, setMediaNote] = useState('')
   const [stopping, setStopping] = useState(false)
   const busy = status?.state === 'running'
   const label = target === 'x' ? 'X 文章' : '知乎'
@@ -25,7 +25,7 @@ export function ExternalPublishModal({ target, getArticle, onClose }: { target: 
     let stagedJobId: string | undefined
     let keepAlive: ReturnType<typeof setInterval> | undefined
     setConverted(false)
-    setVideoNote('')
+    setMediaNote('')
     setStatus({ state: 'running', text: '正在连接浏览器…' })
     try {
       const capabilities = await requestPublishExtension<{ stagedAssets?: boolean }>('ping', undefined, controller.signal)
@@ -43,16 +43,22 @@ export function ExternalPublishModal({ target, getArticle, onClose }: { target: 
       clearInterval(keepAlive)
       if (controller.signal.aborted) return
       setConverted(payload.convertedEmbeds > 0)
-      setVideoNote([payload.videoCount ? `${payload.videoCount} 个视频将自动上传` : '', payload.videoFallbacks ? `${payload.videoFallbacks} 个视频暂保留为链接` : ''].filter(Boolean).join('，'))
+      setMediaNote([payload.videoCount ? `${payload.videoCount} 个视频将自动上传` : '', payload.videoFallbacks ? `${payload.videoFallbacks} 个视频暂保留为链接` : '', payload.omittedMedia ? `已跳过超出 X 上限的 ${payload.omittedMedia} 项媒体` : ''].filter(Boolean).join('，'))
       active.current = payload.job.id
       // Let an in-flight start acknowledge before cancelling: never leave an orphan draft run.
       if (jobId) await requestPublishExtension('start-staged', payload.job)
       else await requestPublishExtension('start', payload)
-      const deadline = Date.now() + 9 * 60_000
+      const progressTimeout = 12 * 60_000
+      let deadline = Date.now() + progressTimeout
+      let lastProgressText: string | undefined
       while (!controller.signal.aborted) {
         if (Date.now() > deadline) throw new Error('发送超时，请检查平台草稿后重试。')
         const progress = await requestPublishExtension<PublishProgress>('status', { jobId: payload.job.id }, controller.signal)
         if (controller.signal.aborted) return
+        if (progress.text && progress.text !== lastProgressText) {
+          lastProgressText = progress.text
+          deadline = Date.now() + progressTimeout
+        }
         setStatus(progress)
         if (progress.state !== 'running') { active.current = null; return }
         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -81,7 +87,7 @@ export function ExternalPublishModal({ target, getArticle, onClose }: { target: 
     <div className="flex items-center justify-between gap-3"><h2 id={titleId} className="font-semibold">发送到{label}草稿</h2><button type="button" aria-label="关闭" disabled={busy} onClick={onClose} className="rounded p-2 disabled:opacity-40"><X className="h-4 w-4" /></button></div>
     <p className="mt-3 text-sm text-[var(--editor-muted)]">自动打开{label}并写入草稿，检查后即可发布。</p>
     <p role="status" aria-live="polite" className="my-4 break-words text-sm">{status?.error?.message || status?.text || (status?.state === 'done' ? '草稿已写入，请前往平台检查。' : '将发送当前编辑内容。')}</p>
-    {videoNote && <p className="mb-3 text-xs text-[var(--editor-muted)]">{videoNote}</p>}
+    {mediaNote && <p className="mb-3 text-xs text-[var(--editor-muted)]">{mediaNote}</p>}
     {converted && <p className="mb-4 text-xs text-[var(--editor-muted)]">音视频和嵌入内容已转为链接，原文未改动。</p>}
     <div className="flex justify-end gap-2">{url && <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-md border border-[var(--editor-line)] px-3 py-2 text-sm">查看草稿</a>}{busy ? <button type="button" onClick={stop} disabled={stopping} className="rounded-md border border-[var(--editor-line)] px-3 py-2 text-sm disabled:opacity-40">停止</button> : <button type="button" onClick={() => void send()} className="rounded-md bg-[var(--editor-accent)] px-3 py-2 text-sm text-white">{status?.state === 'done' ? '再发送一份' : '发送草稿'}</button>}</div>
   </dialog>

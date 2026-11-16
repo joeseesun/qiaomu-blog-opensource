@@ -110,6 +110,36 @@ export function normalizePublishEmbeds(doc: Document, base: string, keepMp4 = fa
   return converted
 }
 
+const X_MEDIA_LIMIT = 25
+
+function limitXMedia(doc: Document, cover?: string) {
+  const media = Array.from(doc.querySelectorAll('img,video,table')).filter(node => !node.parentElement?.closest('table'))
+  const normalized = (source: string | null | undefined) => {
+    try { return source ? new URL(source, location.href).href : undefined } catch { return undefined }
+  }
+  const coverUrl = normalized(cover)
+  const coverInBody = coverUrl && media.slice(0, X_MEDIA_LIMIT).some(node =>
+    node.tagName === 'IMG' && normalized(node.getAttribute('src')) === coverUrl)
+  const overflow = media.slice(X_MEDIA_LIMIT - (coverUrl && !coverInBody ? 1 : 0))
+  for (const node of overflow) {
+    if (node.tagName === 'VIDEO') {
+      const link = doc.createElement('a')
+      link.setAttribute('href', node.getAttribute('src') || '')
+      link.textContent = node.getAttribute('title') || '查看视频'
+      node.replaceWith(link)
+    } else if (node.tagName === 'TABLE') {
+      const body = doc.createDocumentFragment()
+      for (const row of Array.from(node.querySelectorAll('tr'))) {
+        const line = doc.createElement('p')
+        line.textContent = Array.from(row.children, cell => cell.textContent?.trim()).filter(Boolean).join(' | ')
+        body.appendChild(line)
+      }
+      node.replaceWith(body)
+    } else node.remove()
+  }
+  return overflow.length
+}
+
 /** Build the same v1 job consumed by Qiaomu Publish's Clipper adapter. Images never go through a cloud relay. */
 export async function prepareExternalArticle(target: ExternalPublishTarget, article: PublishArticle, signal: AbortSignal, onProgress?: (text: string) => void, staging?: PublishStaging) {
   const title = article.title.trim()
@@ -126,6 +156,17 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
   doc.querySelectorAll('a[href]').forEach(node => {
     try { const url = new URL(node.getAttribute('href')!, location.href); if (!['https:', 'http:'].includes(url.protocol)) node.removeAttribute('href'); else node.setAttribute('href', url.href) } catch { node.removeAttribute('href') }
   })
+  if (target === 'x') {
+    // Existing MP4 download cards are also article videos; preserve their position.
+    for (const link of Array.from(doc.querySelectorAll('a[href]'))) {
+      try {
+        const url = new URL(link.getAttribute('href') || '', location.href)
+        if (!['https:', 'http:'].includes(url.protocol) || !/\.mp4$/i.test(url.pathname) || !link.textContent?.trim() || link.querySelector('img')) continue
+        const video = doc.createElement('video'); video.setAttribute('src', url.href); video.setAttribute('title', link.textContent.trim()); link.replaceWith(video)
+      } catch { /* The common sanitizer handles malformed links. */ }
+    }
+  }
+  const omittedMedia = target === 'x' ? limitXMedia(doc, article.cover) : 0
   const assets: PublishFile[] = []
   const manifest: PublishAsset[] = []
   const cache = new Map<string, string>()
@@ -137,14 +178,15 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     const index = manifest.length + 1
     if (index > 100) throw new PublishTransferError('一篇草稿最多发送 100 个媒体文件。')
     onProgress?.(`正在读取${video ? '视频' : '图片'} ${index}…`)
-    const response = await fetch(url.href, { signal, credentials: 'same-origin' })
+    const mediaSignal = AbortSignal.any([signal, AbortSignal.timeout(45_000)])
+    const response = await fetch(url.href, { signal: mediaSignal, credentials: 'same-origin' })
     if (!response.ok) throw new Error('图片读取失败，请先将外链图片保存到博客。')
     let blob = await response.blob()
     if (!blob.size) throw new Error('媒体文件为空，请重新插入后再发送。')
     const fileLimit = video ? 32 : 20
     const tooLarge = () => new Error(`单个${video ? '视频' : '图片'}超过 ${fileLimit} MB，请缩小后重试。`)
     if (blob.size > fileLimit * 1024 * 1024) throw tooLarge()
-    if (!video) blob = await preparePublishImage(blob, signal)
+    if (!video) blob = await preparePublishImage(blob, mediaSignal)
     if (video ? blob.type !== 'video/mp4' : !/^image\/(png|jpeg|webp|gif)$/.test(blob.type)) throw new Error('请将图片转为 PNG、JPEG、WebP 或 GIF 后再发送。')
     if (blob.size > fileLimit * 1024 * 1024) throw tooLarge()
     if (!staging && total + blob.size > 40 * 1024 * 1024) throw new PublishTransferError('当前的乔木剪藏版本一次最多发送 40 MB 媒体，请更新扩展后重试。')
@@ -171,14 +213,6 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
     node.setAttribute('src', `${target === 'x' ? 'https://qm-image.local/' : 'qp-asset://'}${await image(source)}`)
   }
   if (target === 'x') {
-    // Existing MP4 download cards are also article videos; preserve their position.
-    for (const link of Array.from(doc.querySelectorAll('a[href]'))) {
-      try {
-        const url = new URL(link.getAttribute('href') || '', location.href)
-        if (!['https:', 'http:'].includes(url.protocol) || !/\.mp4$/i.test(url.pathname) || !link.textContent?.trim() || link.querySelector('img')) continue
-        const video = doc.createElement('video'); video.setAttribute('src', url.href); video.setAttribute('title', link.textContent.trim()); link.replaceWith(video)
-      } catch { /* The common sanitizer handles malformed links. */ }
-    }
     for (const video of Array.from(doc.querySelectorAll('video'))) {
       const source = video.getAttribute('src') || ''
       try {
@@ -193,12 +227,11 @@ export async function prepareExternalArticle(target: ExternalPublishTarget, arti
   const cover = article.cover ? await image(article.cover) : undefined
   const content: { markdown?: string; html?: string; cover?: string; summary?: string } = { cover, summary: article.summary }
   if (target === 'x') {
-    if (doc.querySelectorAll('img,video,table').length + (cover ? 1 : 0) > 25) throw new Error('X 文章的图片与表格合计请控制在 25 个以内。')
     keepVideoLinksInline(doc, location.href)
     const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' })
     td.keep(['table'])
     td.addRule('article-video', { filter: 'video', replacement: (_content, node) => `\n\n<video src="${node.getAttribute('src')}"></video>\n\n` })
     content.markdown = `---\ntitle: ${JSON.stringify(title)}\n${cover ? `cover: ${JSON.stringify(`https://qm-image.local/${cover}`)}\n` : ''}---\n\n${td.turndown(doc.body.innerHTML)}`
   } else content.html = doc.body.innerHTML
-  return { job: { v: 1, id: staging?.jobId ?? crypto.randomUUID(), target, title, noteName: title, content, assets: manifest }, assets, convertedEmbeds, videoCount, videoFallbacks }
+  return { job: { v: 1, id: staging?.jobId ?? crypto.randomUUID(), target, title, noteName: title, content, assets: manifest }, assets, convertedEmbeds, videoCount, videoFallbacks, omittedMedia }
 }
